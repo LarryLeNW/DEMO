@@ -1,0 +1,45 @@
+import type { Metadata } from "next";
+import { Be_Vietnam_Pro } from "next/font/google";
+import { CommerceProvider } from "@/components/commerce/commerce-provider";
+import { SiteShell } from "@/components/layout/site-shell";
+import { siteConfig } from "@/config/site";
+import "./globals.css";
+
+const beVietnamPro = Be_Vietnam_Pro({
+  variable: "--font-be-vietnam-pro",
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
+
+export const metadata: Metadata = {
+  metadataBase: new URL(siteConfig.url),
+  title: {
+    default: siteConfig.name,
+    template: `%s | ${siteConfig.name}`,
+  },
+  description: siteConfig.description,
+  openGraph: {
+    title: siteConfig.name,
+    description: siteConfig.description,
+    url: siteConfig.url,
+    siteName: siteConfig.name,
+    locale: "vi_VN",
+    type: "website",
+  },
+};
+
+export default function RootLayout({ children }: LayoutProps<"/">) {
+  return (
+    <html
+      lang="vi"
+      className={`${beVietnamPro.variable} h-full scroll-smooth antialiased`}
+    >
+      <body className="min-h-full bg-background text-foreground">
+        <CommerceProvider>
+          <SiteShell>{children}</SiteShell>
+        </CommerceProvider>
+      </body>
+    </html>
+  );
+}

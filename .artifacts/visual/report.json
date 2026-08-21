@@ -1,0 +1,122 @@
+[
+  {
+    "route": "/",
+    "viewport": "desktop",
+    "expectedPath": "C:\\dev\\.artifacts\\visual\\home-desktop-remote.png",
+    "actualPath": "C:\\dev\\.artifacts\\visual\\home-desktop-local.png",
+    "diffPath": "C:\\dev\\.artifacts\\visual\\home-desktop-diff.png",
+    "width": 1365,
+    "height": 768,
+    "diffPixels": 50523,
+    "totalPixels": 1048320,
+    "matchPercent": 95.18
+  },
+  {
+    "route": "/",
+    "viewport": "mobile",
+    "expectedPath": "C:\\dev\\.artifacts\\visual\\home-mobile-remote.png",
+    "actualPath": "C:\\dev\\.artifacts\\visual\\home-mobile-local.png",
+    "diffPath": "C:\\dev\\.artifacts\\visual\\home-mobile-diff.png",
+    "width": 390,
+    "height": 844,
+    "diffPixels": 49142,
+    "totalPixels": 329160,
+    "matchPercent": 85.07
+  },
+  {
+    "route": "/ung-dung-phan-mem-khac/cong-cu-ai",
+    "viewport": "desktop",
+    "expectedPath": "C:\\dev\\.artifacts\\visual\\ung-dung-phan-mem-khac-cong-cu-ai-desktop-remote.png",
+    "actualPath": "C:\\dev\\.artifacts\\visual\\ung-dung-phan-mem-khac-cong-cu-ai-desktop-local.png",
+    "diffPath": "C:\\dev\\.artifacts\\visual\\ung-dung-phan-mem-khac-cong-cu-ai-desktop-diff.png",
+    "width": 1365,
+    "height": 768,
+    "diffPixels": 110837,
+    "totalPixels": 1048320,
+    "matchPercent": 89.43
+  },
+  {
+    "route": "/ung-dung-phan-mem-khac/cong-cu-ai",
+    "viewport": "mobile",
+    "expectedPath": "C:\\dev\\.artifacts\\visual\\ung-dung-phan-mem-khac-cong-cu-ai-mobile-remote.png",
+    "actualPath": "C:\\dev\\.artifacts\\visual\\ung-dung-phan-mem-khac-cong-cu-ai-mobile-local.png",
+    "diffPath": "C:\\dev\\.artifacts\\visual\\ung-dung-phan-mem-khac-cong-cu-ai-mobile-diff.png",
+    "width": 390,
+    "height": 844,
+    "diffPixels": 24182,
+    "totalPixels": 329160,
+    "matchPercent": 92.65
+  },
+  {
+    "route": "/tai-khoan-chatgpt-plus",
+    "viewport": "desktop",
+    "expectedPath": "C:\\dev\\.artifacts\\visual\\tai-khoan-chatgpt-plus-desktop-remote.png",
+    "actualPath": "C:\\dev\\.artifacts\\visual\\tai-khoan-chatgpt-plus-desktop-local.png",
+    "diffPath": "C:\\dev\\.artifacts\\visual\\tai-khoan-chatgpt-plus-desktop-diff.png",
+    "width": 1365,
+    "height": 768,
+    "diffPixels": 94655,
+    "totalPixels": 1048320,
+    "matchPercent": 90.97
+  },
+  {
+    "route": "/tai-khoan-chatgpt-plus",
+    "viewport": "mobile",
+    "expectedPath": "C:\\dev\\.artifacts\\visual\\tai-khoan-chatgpt-plus-mobile-remote.png",
+    "actualPath": "C:\\dev\\.artifacts\\visual\\tai-khoan-chatgpt-plus-mobile-local.png",
+    "diffPath": "C:\\dev\\.artifacts\\visual\\tai-khoan-chatgpt-plus-mobile-diff.png",
+    "width": 390,
+    "height": 844,
+    "diffPixels": 23973,
+    "totalPixels": 329160,
+    "matchPercent": 92.72
+  },
+  {
+    "route": "/canva-pro",
+    "viewport": "desktop",
+    "expectedPath": "C:\\dev\\.artifacts\\visual\\canva-pro-desktop-remote.png",
+    "actualPath": "C:\\dev\\.artifacts\\visual\\canva-pro-desktop-local.png",
+    "diffPath": "C:\\dev\\.artifacts\\visual\\canva-pro-desktop-diff.png",
+    "width": 1365,
+    "height": 768,
+    "diffPixels": 101532,
+    "totalPixels": 1048320,
+    "matchPercent": 90.31
+  },
+  {
+    "route": "/canva-pro",
+    "viewport": "mobile",
+    "expectedPath": "C:\\dev\\.artifacts\\visual\\canva-pro-mobile-remote.png",
+    "actualPath": "C:\\dev\\.artifacts\\visual\\canva-pro-mobile-local.png",
+    "diffPath": "C:\\dev\\.artifacts\\visual\\canva-pro-mobile-diff.png",
+    "width": 390,
+    "height": 844,
+    "diffPixels": 31705,
+    "totalPixels": 329160,
+    "matchPercent": 90.37
+  },
+  {
+    "route": "/gioi-thieu",
+    "viewport": "desktop",
+    "expectedPath": "C:\\dev\\.artifacts\\visual\\gioi-thieu-desktop-remote.png",
+    "actualPath": "C:\\dev\\.artifacts\\visual\\gioi-thieu-desktop-local.png",
+    "diffPath": "C:\\dev\\.artifacts\\visual\\gioi-thieu-desktop-diff.png",
+    "width": 1365,
+    "height": 768,
+    "diffPixels": 71778,
+    "totalPixels": 1048320,
+    "matchPercent": 93.15
+  },
+  {
+    "route": "/gioi-thieu",
+    "viewport": "mobile",
+    "expectedPath": "C:\\dev\\.artifacts\\visual\\gioi-thieu-mobile-remote.png",
+    "actualPath": "C:\\dev\\.artifacts\\visual\\gioi-thieu-mobile-local.png",
+    "diffPath": "C:\\dev\\.artifacts\\visual\\gioi-thieu-mobile-diff.png",
+    "width": 390,
+    "height": 844,
+    "diffPixels": 23348,
+    "totalPixels": 329160,
+    "matchPercent": 92.91
+  }
+]
