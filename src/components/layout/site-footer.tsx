@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { siteConfig } from "@/config/site";
-import { generatedContent } from "@/lib/wp-content";
+import { generatedContent, type GeneratedCategory } from "@/lib/wp-content";
 
 const policyLinks = [
   { href: "/huong-dan-mua-hang", label: "Hướng dẫn mua hàng" },
@@ -10,7 +10,7 @@ const policyLinks = [
 ];
 
 export function SiteFooter() {
-  const categories = generatedContent.productCategories
+  const categories = (generatedContent as { productCategories: GeneratedCategory[] }).productCategories
     .filter((category) => category.parent === 0)
     .slice(0, 5);
 
