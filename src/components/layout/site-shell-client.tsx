@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 
 type SiteShellClientProps = {
   children: ReactNode;
@@ -12,6 +13,10 @@ type SiteShellClientProps = {
 
 export function SiteShellClient({ children, header, footer, floating }: SiteShellClientProps) {
   const pathname = usePathname();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [pathname]);
 
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
     return children;

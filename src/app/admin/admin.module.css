@@ -1,9 +1,9 @@
 .shell {
-  --cyan: #04b9d7;
-  --cyan-bright: #18c7e5;
+  --cyan: #22c55e;
+  --cyan-bright: #4ade80;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 76% -10%, rgb(4 185 215 / 9%), transparent 31rem),
+    radial-gradient(circle at 76% -10%, rgb(34 197 94 / 9%), transparent 31rem),
     #07090e;
   color: var(--text);
 }
@@ -80,8 +80,8 @@
 }
 
 .navGroup > button.navActive {
-  border-color: rgb(4 185 215 / 17%);
-  background: linear-gradient(90deg, rgb(4 185 215 / 14%), rgb(4 185 215 / 5%));
+  border-color: rgb(34 197 94 / 17%);
+  background: linear-gradient(90deg, rgb(34 197 94 / 14%), rgb(34 197 94 / 5%));
   color: #e9fbff;
 }
 
@@ -116,7 +116,7 @@
 }
 
 .navGroup button.navActive > em {
-  background: rgb(4 185 215 / 17%);
+  background: rgb(34 197 94 / 17%);
   color: var(--cyan-bright);
 }
 
@@ -137,7 +137,7 @@
   width: 36px;
   height: 36px;
   place-items: center;
-  border: 1px solid rgb(4 185 215 / 30%);
+  border: 1px solid rgb(34 197 94 / 30%);
   border-radius: 10px;
   background: linear-gradient(145deg, #0a6779, #06404c);
   color: white;
@@ -323,7 +323,7 @@
 }
 
 .storeLink:hover {
-  border-color: rgb(4 185 215 / 45%);
+  border-color: rgb(34 197 94 / 45%);
   color: var(--cyan-bright);
 }
 
@@ -340,8 +340,8 @@
 }
 
 .notificationButtonOpen {
-  border-color: rgb(4 185 215 / 50%);
-  background: rgb(4 185 215 / 9%);
+  border-color: rgb(34 197 94 / 50%);
+  background: rgb(34 197 94 / 9%);
   color: var(--cyan-bright);
 }
 
@@ -405,7 +405,7 @@
   padding: 6px 8px;
   border: 0;
   border-radius: 7px;
-  background: rgb(4 185 215 / 8%);
+  background: rgb(34 197 94 / 8%);
   color: #24c5df;
   cursor: pointer;
   font-size: 8px;
@@ -413,7 +413,7 @@
 }
 
 .notificationHeader button:hover {
-  background: rgb(4 185 215 / 14%);
+  background: rgb(34 197 94 / 14%);
   color: #74e8f8;
 }
 
@@ -446,11 +446,11 @@
 }
 
 .notificationList > button.notificationUnread {
-  background: linear-gradient(90deg, rgb(4 185 215 / 7%), transparent 70%);
+  background: linear-gradient(90deg, rgb(34 197 94 / 7%), transparent 70%);
 }
 
 .notificationList > button.notificationUnread:hover {
-  background: linear-gradient(90deg, rgb(4 185 215 / 11%), rgb(255 255 255 / 2%) 75%);
+  background: linear-gradient(90deg, rgb(34 197 94 / 11%), rgb(255 255 255 / 2%) 75%);
 }
 
 .notificationIcon {
@@ -508,7 +508,7 @@
   margin-top: 5px;
   border-radius: 50%;
   background: var(--cyan-bright);
-  box-shadow: 0 0 0 3px rgb(4 185 215 / 12%);
+  box-shadow: 0 0 0 3px rgb(34 197 94 / 12%);
 }
 
 .notificationFooter {
@@ -639,7 +639,7 @@
 .primaryButton {
   border: 1px solid #08b7d4;
   background: linear-gradient(135deg, #08b7d4, #0694ae);
-  box-shadow: 0 8px 22px rgb(4 185 215 / 14%);
+  box-shadow: 0 8px 22px rgb(34 197 94 / 14%);
   color: #031014;
   padding: 0 15px;
 }
@@ -692,8 +692,8 @@
 }
 
 .cyan {
-  background: rgb(4 185 215 / 10%);
-  color: #18c7e5;
+  background: rgb(34 197 94 / 10%);
+  color: #4ade80;
 }
 
 .blue {
@@ -872,7 +872,7 @@
   min-height: 6px;
   border-radius: 5px 5px 2px 2px;
   background: linear-gradient(180deg, #12c8e5, #086a7c 90%);
-  box-shadow: 0 0 14px rgb(4 185 215 / 12%);
+  box-shadow: 0 0 14px rgb(34 197 94 / 12%);
   transition: 180ms ease;
 }
 
@@ -940,7 +940,7 @@
   height: 34px;
   place-items: center;
   border-radius: 9px;
-  background: rgb(4 185 215 / 9%);
+  background: rgb(34 197 94 / 9%);
   color: var(--cyan-bright);
 }
 
@@ -1170,8 +1170,8 @@
 .titleIcon {
   width: 46px;
   height: 46px;
-  border-color: rgb(4 185 215 / 35%);
-  background: rgb(4 185 215 / 8%);
+  border-color: rgb(34 197 94 / 35%);
+  background: rgb(34 197 94 / 8%);
   color: var(--cyan-bright);
 }
 
@@ -1288,9 +1288,9 @@
 }
 
 .statusSelectTriggerOpen {
-  border-color: rgb(4 185 215 / 65%);
-  background: rgb(4 185 215 / 7%);
-  box-shadow: 0 0 0 3px rgb(4 185 215 / 8%);
+  border-color: rgb(34 197 94 / 65%);
+  background: rgb(34 197 94 / 7%);
+  box-shadow: 0 0 0 3px rgb(34 197 94 / 8%);
   color: var(--cyan-bright);
 }
 
@@ -1346,8 +1346,8 @@
 }
 
 .statusSelectMenu > button:hover {
-  border-color: rgb(4 185 215 / 14%);
-  background: rgb(4 185 215 / 8%);
+  border-color: rgb(34 197 94 / 14%);
+  background: rgb(34 197 94 / 8%);
   color: #e3faff;
 }
 
@@ -1366,14 +1366,14 @@
 }
 
 .statusSelectMenu > button.statusOptionSelected {
-  border-color: rgb(4 185 215 / 25%);
-  background: linear-gradient(90deg, rgb(4 185 215 / 14%), rgb(4 185 215 / 5%));
+  border-color: rgb(34 197 94 / 25%);
+  background: linear-gradient(90deg, rgb(34 197 94 / 14%), rgb(34 197 94 / 5%));
   color: #dffbff;
 }
 
 .statusOptionSelected .statusOptionDot {
   background: var(--cyan-bright);
-  box-shadow: 0 0 0 3px rgb(4 185 215 / 15%);
+  box-shadow: 0 0 0 3px rgb(34 197 94 / 15%);
 }
 
 .statusOptionSelected > svg {
@@ -1468,7 +1468,7 @@
 }
 
 .rowActions button:hover {
-  border-color: rgb(4 185 215 / 45%);
+  border-color: rgb(34 197 94 / 45%);
   color: var(--cyan-bright);
 }
 
@@ -1526,8 +1526,8 @@
 }
 
 .pagination button.pageActive {
-  border-color: rgb(4 185 215 / 45%);
-  background: rgb(4 185 215 / 10%);
+  border-color: rgb(34 197 94 / 45%);
+  background: rgb(34 197 94 / 10%);
   color: var(--cyan-bright);
 }
 
@@ -1633,7 +1633,7 @@
 .formGrid select:focus,
 .formGrid textarea:focus {
   border-color: var(--cyan);
-  box-shadow: 0 0 0 3px rgb(4 185 215 / 8%);
+  box-shadow: 0 0 0 3px rgb(34 197 94 / 8%);
 }
 
 .fullField {

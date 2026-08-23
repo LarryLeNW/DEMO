@@ -21,7 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
-import { generatedContent } from "@/lib/wp-content";
+import { generatedContent, type GeneratedProduct } from "@/lib/wp-content";
 
 export type CommerceProductSnapshot = {
   id: string;
@@ -47,12 +47,15 @@ type CheckoutDraft = {
   paymentMethod: "bank" | "zalo";
 };
 
+export type CommerceDrawer = "cart" | "wishlist" | "account" | "checkout";
+
 type CommerceContextValue = {
   cart: CartLine[];
   wishlist: CommerceProductSnapshot[];
   cartCount: number;
   wishlistCount: number;
   subtotal: number;
+  drawer: CommerceDrawer | null;
   isWishlisted: (slug: string) => boolean;
   addToCart: (
     product: CommerceProductSnapshot,
@@ -61,6 +64,7 @@ type CommerceContextValue = {
   removeFromCart: (lineId: string) => void;
   updateQuantity: (lineId: string, quantity: number) => void;
   toggleWishlist: (product: CommerceProductSnapshot) => void;
+  closeDrawer: () => void;
   openCart: () => void;
   openWishlist: () => void;
   openAccount: () => void;
@@ -113,7 +117,7 @@ function wishlistSnapshotFromStoredItem(value: unknown) {
 }
 
 function wishlistSnapshotFromSlug(slug: string): CommerceProductSnapshot {
-  const product = generatedContent.products.find(
+  const product = (generatedContent as { products: GeneratedProduct[] }).products.find(
     (item) => item.path === slug || item.slug === slug,
   );
 
@@ -130,7 +134,7 @@ function wishlistSnapshotFromSlug(slug: string): CommerceProductSnapshot {
 export function CommerceProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [wishlist, setWishlist] = useState<CommerceProductSnapshot[]>([]);
-  const [drawer, setDrawer] = useState<"cart" | "wishlist" | "account" | "checkout" | null>(
+  const [drawer, setDrawer] = useState<CommerceDrawer | null>(
     null,
   );
   const [hasLoadedStorage, setHasLoadedStorage] = useState(false);
@@ -237,17 +241,19 @@ export function CommerceProvider({ children }: { children: ReactNode }) {
       cartCount: cart.reduce((sum, item) => sum + item.quantity, 0),
       wishlistCount: wishlist.length,
       subtotal,
+      drawer,
       isWishlisted: (slug) => wishlist.some((item) => item.slug === slug),
       addToCart,
       removeFromCart,
       updateQuantity,
       toggleWishlist,
+      closeDrawer: () => setDrawer(null),
       openCart: () => setDrawer("cart"),
       openWishlist: () => setDrawer("wishlist"),
       openAccount: () => setDrawer("account"),
       openCheckout: () => setDrawer("checkout"),
     }),
-    [addToCart, cart, removeFromCart, subtotal, toggleWishlist, updateQuantity, wishlist],
+    [addToCart, cart, drawer, removeFromCart, subtotal, toggleWishlist, updateQuantity, wishlist],
   );
 
   function submitCheckout() {
@@ -264,7 +270,7 @@ export function CommerceProvider({ children }: { children: ReactNode }) {
     <CommerceContext.Provider value={value}>
       {children}
       {drawer ? (
-        <div className="fixed inset-0 z-[80]">
+        <div className="fixed inset-x-0 top-0 bottom-[calc(68px+env(safe-area-inset-bottom))] z-[80] lg:bottom-0">
           <button
             className="absolute inset-0 bg-slate-950/40"
             type="button"
@@ -300,6 +306,7 @@ export function CommerceProvider({ children }: { children: ReactNode }) {
               <CartDrawer
                 cart={cart}
                 subtotal={subtotal}
+                onProductClick={() => setDrawer(null)}
                 onCheckout={() => setDrawer("checkout")}
                 onRemove={removeFromCart}
                 onUpdateQuantity={updateQuantity}
@@ -309,6 +316,7 @@ export function CommerceProvider({ children }: { children: ReactNode }) {
             {drawer === "wishlist" ? (
               <WishlistDrawer
                 wishlist={wishlist}
+                onProductClick={() => setDrawer(null)}
                 onRemove={(slug) =>
                   setWishlist((current) => current.filter((item) => item.slug !== slug))
                 }
@@ -345,12 +353,14 @@ export function useCommerce() {
 function CartDrawer({
   cart,
   subtotal,
+  onProductClick,
   onCheckout,
   onRemove,
   onUpdateQuantity,
 }: {
   cart: CartLine[];
   subtotal: number;
+  onProductClick: () => void;
   onCheckout: () => void;
   onRemove: (lineId: string) => void;
   onUpdateQuantity: (lineId: string, quantity: number) => void;
@@ -374,17 +384,20 @@ function CartDrawer({
           <div key={item.lineId} className="rounded-md border border-border p-3">
             <div className="flex gap-3">
               {item.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={item.image}
-                  alt={item.title}
-                  className="size-16 rounded-md object-cover"
-                />
+                  <Link href={`/${item.slug}`} onClick={onProductClick}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="size-16 rounded-md object-cover"
+                    />
+                  </Link>
               ) : null}
               <div className="min-w-0 flex-1">
                 <Link
                   href={`/${item.slug}`}
                   className="line-clamp-2 font-extrabold text-slate-950"
+                  onClick={onProductClick}
                 >
                   {item.title}
                 </Link>
@@ -450,9 +463,11 @@ function CartDrawer({
 
 function WishlistDrawer({
   wishlist,
+  onProductClick,
   onRemove,
 }: {
   wishlist: CommerceProductSnapshot[];
+  onProductClick: () => void;
   onRemove: (slug: string) => void;
 }) {
   return (
@@ -463,12 +478,14 @@ function WishlistDrawer({
             <div key={item.slug} className="rounded-md border border-border p-3">
               <div className="flex gap-3">
                 {item.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={item.image}
-                    alt={item.title}
-                    className="size-16 rounded-md object-cover"
-                  />
+                  <Link href={`/${item.slug}`} onClick={onProductClick}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="size-16 rounded-md object-cover"
+                    />
+                  </Link>
                 ) : (
                   <div className="grid size-16 shrink-0 place-items-center rounded-md bg-surface-muted text-xs font-extrabold text-primary-strong">
                     AI
@@ -478,6 +495,7 @@ function WishlistDrawer({
                   <Link
                     href={`/${item.slug}`}
                     className="line-clamp-2 font-extrabold text-slate-950 hover:text-primary-strong"
+                    onClick={onProductClick}
                   >
                     {item.title}
                   </Link>
@@ -499,6 +517,7 @@ function WishlistDrawer({
                 <Link
                   href={`/${item.slug}`}
                   className="text-sm font-bold text-primary-strong"
+                  onClick={onProductClick}
                 >
                   Xem sản phẩm
                 </Link>

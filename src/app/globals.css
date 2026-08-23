@@ -38,6 +38,28 @@ body {
   font-family: var(--font-be-vietnam-pro), Arial, Helvetica, sans-serif;
 }
 
+.mobile-bottom-nav {
+  position: fixed !important;
+  display: grid !important;
+  width: 100% !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  inset-block-end: 0 !important;
+  z-index: 9999 !important;
+  height: calc(68px + env(safe-area-inset-bottom, 0px)) !important;
+  box-sizing: border-box;
+  background: #fff !important;
+  transform: translateZ(0);
+  visibility: visible !important;
+}
+
+@media (min-width: 1024px) {
+  .mobile-bottom-nav {
+    display: none !important;
+  }
+}
+
 nextjs-portal {
   display: none !important;
 }
@@ -419,10 +441,12 @@ textarea {
 }
 
 .wp-content table {
+  display: block;
   width: 100%;
   max-width: 100%;
+  overflow-x: auto;
   border-collapse: collapse;
-  overflow: hidden;
+  overflow-y: hidden;
   border-radius: var(--radius-md);
 }
 

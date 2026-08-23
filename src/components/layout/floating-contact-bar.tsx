@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { FileText, Heart, Send, ShoppingCart } from "lucide-react";
 import { useCommerce } from "@/components/commerce/commerce-provider";
 
@@ -9,10 +10,12 @@ const zaloUrl =
   "https://khotaikhoan.net/wp-content/uploads/2024/12/Icon_of_Zalo.svg-2-35x35.png";
 const contactPhone = "0931729316";
 const bottomNavItemClass =
-  "relative grid content-center justify-items-center gap-0.5 px-1 py-2 text-[12px] font-semibold leading-none text-slate-950";
+  "relative grid w-full place-items-center content-center gap-0.5 px-1 py-2 text-center text-[12px] font-semibold leading-none text-slate-950";
 
 export function FloatingContactBar() {
   const commerce = useCommerce();
+  const pathname = usePathname();
+  const activeItemClass = "text-primary-strong";
 
   return (
     <>
@@ -43,9 +46,9 @@ export function FloatingContactBar() {
         </a>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid h-[calc(68px+env(safe-area-inset-bottom))] grid-cols-3 border-t border-[#e5e7eb] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(15,23,42,0.08)] lg:hidden">
+      <nav className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-[90] grid h-[calc(68px+env(safe-area-inset-bottom))] grid-cols-3 border-t border-[#e5e7eb] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(15,23,42,0.08)] lg:hidden">
         <button
-          className={bottomNavItemClass}
+          className={`${bottomNavItemClass} ${commerce.drawer === "wishlist" ? activeItemClass : ""}`}
           type="button"
           onClick={commerce.openWishlist}
         >
@@ -58,7 +61,7 @@ export function FloatingContactBar() {
           <span>Wishlist</span>
         </button>
         <button
-          className={bottomNavItemClass}
+          className={`${bottomNavItemClass} ${commerce.drawer === "cart" ? activeItemClass : ""}`}
           type="button"
           onClick={commerce.openCart}
         >
@@ -71,8 +74,9 @@ export function FloatingContactBar() {
           <span>Giỏ hàng</span>
         </button>
         <Link
-          className={bottomNavItemClass}
+          className={`${bottomNavItemClass} ${pathname === "/blog" || pathname.startsWith("/blog/") ? activeItemClass : ""}`}
           href="/blog"
+          onClick={commerce.closeDrawer}
         >
           <FileText size={24} aria-hidden="true" />
           <span>Blog</span>
