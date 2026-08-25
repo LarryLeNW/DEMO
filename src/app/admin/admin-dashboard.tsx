@@ -481,9 +481,8 @@ function AdminSidebar({ active, open, onSelect, onClose }: { active: ModuleId; o
           ))}
         </nav>
         <div className={styles.sidebarFooter}>
-          <div className={styles.adminAvatar}>AD</div>
-          <div><strong>Quản trị viên</strong><span>admin@aihub.com</span></div>
-          <Link href="/login" className={styles.logoutButton} aria-label="Đăng xuất" title="Đăng xuất"><LogOut size={17} /></Link>
+          <AIHubLogo href="/admin" size="sm" admin className={styles.footerLogo} />
+          <Link href="/" className={styles.logoutButton} aria-label="Đăng xuất" title="Đăng xuất"><LogOut size={17} /></Link>
         </div>
       </aside>
     </>

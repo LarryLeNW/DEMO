@@ -121,17 +121,19 @@
 }
 
 .sidebarFooter {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) 30px;
+  display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 9px;
-  padding: 14px 15px;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 78px;
+  padding: 15px 18px;
   border-top: 1px solid #222a39;
-  background: #0a0e14;
+  background:
+    radial-gradient(circle at 20% 0%, rgb(19 209 231 / 10%), transparent 11rem),
+    #0a0e14;
 }
 
-.adminAvatar,
 .profileButton > span {
   display: grid;
   width: 36px;
@@ -145,26 +147,8 @@
   font-weight: 800;
 }
 
-.sidebarFooter > div:nth-child(2) {
+.footerLogo {
   min-width: 0;
-}
-
-.sidebarFooter strong,
-.sidebarFooter span {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sidebarFooter strong {
-  font-size: 11px;
-}
-
-.sidebarFooter span {
-  margin-top: 3px;
-  color: #69758b;
-  font-size: 9px;
 }
 
 .sidebarFooter button,
@@ -188,6 +172,7 @@
 
 .sidebarFooter button,
 .sidebarFooter .logoutButton {
+  flex: 0 0 auto;
   width: 30px;
   height: 30px;
 }

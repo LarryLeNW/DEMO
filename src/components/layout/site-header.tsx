@@ -2,7 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Bot,
@@ -72,6 +79,8 @@ export function SiteHeader() {
   const commerce = useCommerce();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isHeaderHidden, setIsHeaderHidden] = useState(false);
+  const lastScrollY = useRef(0);
   const activeRailHref = railItems
     .filter(
       (item) =>
@@ -83,9 +92,60 @@ export function SiteHeader() {
     .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    lastScrollY.current = window.scrollY;
+
+    function syncHeaderVisibility() {
+      if (!mediaQuery.matches || menuOpen) {
+        setIsHeaderHidden(false);
+        lastScrollY.current = window.scrollY;
+        return;
+      }
+
+      const currentScrollY = window.scrollY;
+      const delta = currentScrollY - lastScrollY.current;
+
+      if (currentScrollY < 96) {
+        setIsHeaderHidden(false);
+      } else if (delta > 8) {
+        setIsHeaderHidden(true);
+      } else if (delta < -8) {
+        setIsHeaderHidden(false);
+      }
+
+      lastScrollY.current = currentScrollY;
+    }
+
+    let frame = 0;
+    function handleScroll() {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        syncHeaderVisibility();
+        frame = 0;
+      });
+    }
+
+    syncHeaderVisibility();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    mediaQuery.addEventListener("change", syncHeaderVisibility);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      mediaQuery.removeEventListener("change", syncHeaderVisibility);
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+      }
+    };
+  }, [menuOpen]);
+
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white shadow-[0_1px_0_rgba(15,23,42,0.08)]">
+      <header
+        className={`sticky top-0 z-40 bg-white shadow-[0_1px_0_rgba(15,23,42,0.08)] transition-transform duration-300 ease-out lg:transform-gpu lg:will-change-transform ${
+          isHeaderHidden ? "lg:-translate-y-full" : "lg:translate-y-0"
+        }`}
+      >
         <div className="lg:hidden">
           <div className="relative flex h-[60px] items-center justify-between px-4">
             <button
