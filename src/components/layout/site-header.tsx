@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -19,7 +20,6 @@ import {
   Heart,
   Laptop,
   Menu,
-  Newspaper,
   Search,
   ShieldCheck,
   ShoppingCart,
@@ -53,17 +53,6 @@ const navLinks = [
   },
 ];
 
-const railItems = [
-  { href: "/ung-dung-phan-mem-khac/cong-cu-ai", label: "Công cụ AI", icon: Bot },
-  { href: "/hoc-tap", label: "Học tập", icon: GraduationCap },
-  { href: "/lam-viec", label: "Làm việc", icon: Laptop },
-  { href: "/giai-tri", label: "Giải trí", icon: Gamepad2 },
-  { href: "/anti-virus", label: "Anti Virus", icon: ShieldCheck },
-  { href: "/vpn", label: "VPN", icon: Wrench },
-  { href: "/blog", label: "Tin tức", icon: Newspaper },
-  { href: `tel:${contactPhone}`, label: "Hỗ trợ", icon: Headphones },
-];
-
 const categoryMenuItems = [
   { href: "/ung-dung-phan-mem-khac/cong-cu-ai", label: "Công cụ AI", icon: Bot },
   { href: "/hoc-tap", label: "Học Tập", icon: GraduationCap },
@@ -79,25 +68,74 @@ export function SiteHeader() {
   const commerce = useCommerce();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
   const [isHeaderHidden, setIsHeaderHidden] = useState(false);
   const lastScrollY = useRef(0);
-  const activeRailHref = railItems
-    .filter(
-      (item) =>
-        item.href.startsWith("/") &&
-        (pathname === item.href || pathname.startsWith(`${item.href}/`)),
-    )
-    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+  const categoryRef = useRef<HTMLDivElement>(null);
+  const categoryCloseTimer = useRef<number | null>(null);
   const activeCategoryHref = categoryMenuItems
     .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
+  const clearCategoryTimer = useCallback(() => {
+    if (categoryCloseTimer.current !== null) {
+      window.clearTimeout(categoryCloseTimer.current);
+      categoryCloseTimer.current = null;
+    }
+  }, []);
+
+  const openCategory = useCallback(() => {
+    clearCategoryTimer();
+    setCategoryOpen(true);
+  }, [clearCategoryTimer]);
+
+  const closeCategory = useCallback(
+    (delay = 0) => {
+      clearCategoryTimer();
+      if (delay <= 0) {
+        setCategoryOpen(false);
+        return;
+      }
+      categoryCloseTimer.current = window.setTimeout(() => {
+        categoryCloseTimer.current = null;
+        setCategoryOpen(false);
+      }, delay);
+    },
+    [clearCategoryTimer],
+  );
+
+  useEffect(() => clearCategoryTimer, [clearCategoryTimer]);
+
+  useEffect(() => {
+    if (!categoryOpen) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!categoryRef.current?.contains(event.target as Node)) {
+        closeCategory();
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        closeCategory();
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [categoryOpen, closeCategory]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");
     lastScrollY.current = window.scrollY;
 
     function syncHeaderVisibility() {
-      if (!mediaQuery.matches || menuOpen) {
+      if (!mediaQuery.matches || menuOpen || categoryOpen) {
         setIsHeaderHidden(false);
         lastScrollY.current = window.scrollY;
         return;
@@ -137,7 +175,7 @@ export function SiteHeader() {
         window.cancelAnimationFrame(frame);
       }
     };
-  }, [menuOpen]);
+  }, [menuOpen, categoryOpen]);
 
   return (
     <>
@@ -202,19 +240,79 @@ export function SiteHeader() {
             </div>
           </div>
 
-          <div className="ml-[60px] h-[60px] bg-[#eaf8ef]">
+          <div className="h-[60px] bg-[#eaf8ef]">
             <div className="mx-auto flex h-full max-w-[1222px] items-center justify-between gap-5 px-[15px]">
               <div className="flex h-full items-center gap-5">
-                <button
-                  className="focus-ring inline-flex h-[42px] w-[171px] items-center gap-2.5 rounded-full bg-white pl-[3px] pr-3 text-[14px] font-extrabold leading-none text-slate-800 shadow-sm"
-                  type="button"
-                  onClick={() => setMenuOpen(true)}
+                <div
+                  ref={categoryRef}
+                  className="relative flex h-full items-center"
+                  onMouseEnter={openCategory}
+                  onMouseLeave={() => closeCategory(160)}
                 >
-                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#16a34a] text-white">
-                    <Menu size={21} aria-hidden="true" />
-                  </span>
-                  <span className="whitespace-nowrap text-[13px]">Tất cả danh mục</span>
-                </button>
+                  <button
+                    className={`focus-ring inline-flex h-[42px] w-[171px] cursor-pointer items-center gap-2.5 rounded-full bg-white pl-[3px] pr-3 text-[14px] font-extrabold leading-none shadow-sm transition-[color,box-shadow] duration-200 ${
+                      categoryOpen
+                        ? "text-[#15803d] shadow-[0_6px_16px_rgba(22,163,74,0.18)]"
+                        : "text-slate-800"
+                    }`}
+                    type="button"
+                    aria-haspopup="true"
+                    aria-expanded={categoryOpen}
+                    aria-controls="ktk-category-menu"
+                    onClick={openCategory}
+                  >
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#16a34a] text-white">
+                      <Menu size={21} aria-hidden="true" />
+                    </span>
+                    <span className="whitespace-nowrap text-[13px]">Tất cả danh mục</span>
+                  </button>
+
+                  <div
+                    id="ktk-category-menu"
+                    className={`absolute left-0 top-full z-50 w-[274px] origin-top overflow-hidden rounded-b-[10px] border border-t-0 border-[#e5e7eb] bg-white py-2 shadow-[0_18px_40px_rgba(15,23,42,0.14)] transition-[opacity,translate,visibility] duration-200 ease-out ${
+                      categoryOpen
+                        ? "visible translate-y-0 opacity-100"
+                        : "invisible -translate-y-2 opacity-0"
+                    }`}
+                    aria-hidden={!categoryOpen}
+                  >
+                    {categoryMenuItems.map((item, index) => {
+                      const Icon = item.icon;
+                      const active = item.href === activeCategoryHref;
+
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          aria-current={active ? "page" : undefined}
+                          className={`group flex h-[48px] items-center gap-3.5 px-5 text-[15px] font-bold transition-[opacity,translate,background-color,color] duration-200 ease-out hover:bg-[#f0faf4] hover:text-[#15803d] ${
+                            active ? "bg-[#f0faf4] text-[#15803d]" : "text-slate-950"
+                          } ${
+                            categoryOpen
+                              ? "translate-y-0 opacity-100"
+                              : "-translate-y-1 opacity-0"
+                          }`}
+                          style={{
+                            transitionDelay: categoryOpen ? `${index * 22}ms` : "0ms",
+                          }}
+                          tabIndex={categoryOpen ? undefined : -1}
+                          onClick={() => closeCategory()}
+                        >
+                          <Icon
+                            size={22}
+                            className={
+                              active
+                                ? "text-[#15803d]"
+                                : "text-slate-950 transition-colors duration-200 group-hover:text-[#15803d]"
+                            }
+                            aria-hidden="true"
+                          />
+                          <span>{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
                 {navLinks.map((link) => {
                   const active =
                     pathname === link.href || pathname.startsWith(`${link.href}/`);
@@ -232,13 +330,13 @@ export function SiteHeader() {
                     <Image
                       src={link.iconSrc}
                       alt=""
-                      width={24}
-                      height={24}
-                      sizes="24px"
+                      width={28}
+                      height={28}
+                      sizes="28px"
                       className={
                         active
-                          ? "ktk-nav-img-active size-6 shrink-0 object-contain"
-                          : "ktk-nav-img-inactive size-6 shrink-0 object-contain"
+                          ? "ktk-nav-img-active size-7 shrink-0 object-contain"
+                          : "ktk-nav-img-inactive size-7 shrink-0 object-contain"
                       }
                     />
                     {link.label}
@@ -275,56 +373,19 @@ export function SiteHeader() {
         </div>
       </header>
 
-      <div className="ktk-left-rail-bg" aria-hidden="true" />
-
-      <button
-        className="ktk-top-menu focus-ring"
-        type="button"
-        aria-label="Mở danh mục"
-        title="Mở danh mục"
-        onClick={() => setMenuOpen(true)}
-      >
-        <Menu size={23} aria-hidden="true" />
-      </button>
-
-      <aside className="ktk-left-rail">
-        {railItems.map((item) => {
-          const Icon = item.icon;
-          const active = item.href === activeRailHref;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={active ? "page" : undefined}
-              className={
-                active
-                  ? "focus-ring grid size-10 place-items-center text-[#15803d] transition"
-                  : "focus-ring grid size-10 place-items-center text-slate-950 transition hover:text-[#15803d]"
-              }
-              title={item.label}
-              aria-label={item.label}
-            >
-              <Icon size={21} aria-hidden="true" />
-            </Link>
-          );
-        })}
-      </aside>
-
       {menuOpen ? (
-        <div className="fixed inset-0 z-[70]">
+        <div className="fixed inset-0 z-[70] lg:hidden">
           <button
-            className="absolute inset-0 bg-slate-950/70 lg:bg-transparent"
+            className="absolute inset-0 bg-slate-950/70"
             type="button"
             aria-label="Đóng menu"
             onClick={() => setMenuOpen(false)}
           />
-          <div className="absolute left-0 top-0 h-full w-[300px] overflow-hidden bg-white shadow-2xl lg:w-[274px] lg:pt-2 lg:shadow-none">
-            <div className="flex h-[53px] items-center justify-center border-b-2 border-[#16a34a] text-[14px] font-extrabold uppercase text-slate-950 lg:mx-2 lg:h-[44px] lg:justify-start lg:border-b-0 lg:bg-[#16a34a] lg:px-4 lg:text-[18px] lg:normal-case lg:text-white lg:[border-radius:0_22px_22px_0]">
-              <Menu className="mr-2 hidden lg:block" size={22} aria-hidden="true" />
-              <span className="lg:hidden">DANH MỤC</span>
-              <span className="hidden lg:inline">Tất cả danh mục</span>
+          <div className="absolute left-0 top-0 h-full w-[300px] overflow-hidden bg-white shadow-2xl">
+            <div className="flex h-[53px] items-center justify-center border-b-2 border-[#16a34a] text-[14px] font-extrabold uppercase text-slate-950">
+              DANH MỤC
             </div>
-            <div className="bg-white lg:mt-3">
+            <div className="bg-white">
               {categoryMenuItems.map((item) => {
                 const Icon = item.icon;
                 const active = item.href === activeCategoryHref;
@@ -334,7 +395,7 @@ export function SiteHeader() {
                     key={item.href}
                     href={item.href}
                     aria-current={active ? "page" : undefined}
-                    className={`group flex h-[50px] items-center gap-3 border-b border-[#e5e7eb] px-5 text-[16px] font-bold transition hover:text-[#15803d] lg:h-[50px] lg:gap-3.5 lg:border-b-0 lg:px-6 lg:text-[18px] ${
+                    className={`group flex h-[50px] items-center gap-3 border-b border-[#e5e7eb] px-5 text-[16px] font-bold transition hover:text-[#15803d] ${
                       active ? "text-[#15803d]" : "text-slate-950"
                     }`}
                     onClick={() => setMenuOpen(false)}

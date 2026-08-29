@@ -159,54 +159,6 @@ textarea {
   }
 }
 
-.ktk-left-rail {
-  position: fixed;
-  left: 12px;
-  top: 74px;
-  z-index: 43;
-  display: none;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.ktk-left-rail-bg {
-  position: fixed;
-  inset: 0 auto 0 0;
-  z-index: 42;
-  display: none;
-  width: 60px;
-  background: #fff;
-  border-right: 1px solid #eef2f7;
-}
-
-.ktk-top-menu {
-  position: fixed;
-  left: 8px;
-  top: 9px;
-  z-index: 44;
-  display: none;
-  width: 43px;
-  height: 43px;
-  place-items: center;
-  border-radius: 999px;
-  background: #16a34a;
-  color: #fff;
-}
-
-@media (min-width: 1280px) {
-  .ktk-left-rail-bg {
-    display: block;
-  }
-
-  .ktk-left-rail {
-    display: flex;
-  }
-
-  .ktk-top-menu {
-    display: grid;
-  }
-}
-
 .focus-ring {
   outline: 2px solid transparent;
   outline-offset: 2px;
