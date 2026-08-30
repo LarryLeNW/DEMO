@@ -61,6 +61,9 @@ export class ProductsService {
     if (query.ids?.length) {
       qb.andWhere('product.id IN (:...ids)', { ids: query.ids });
     }
+    if (query.slugs?.length) {
+      qb.andWhere('product.slug IN (:...slugs)', { slugs: query.slugs });
+    }
 
     if (query.category) {
       const category = await this.categoriesService.findBySlugOrPath(
@@ -129,6 +132,9 @@ export class ProductsService {
     if (query.ids?.length) {
       const order = new Map(query.ids.map((id, index) => [id, index]));
       items.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+    } else if (query.slugs?.length) {
+      const order = new Map(query.slugs.map((slug, index) => [slug, index]));
+      items.sort((a, b) => (order.get(a.slug) ?? 0) - (order.get(b.slug) ?? 0));
     }
 
     return paginate(items, total, query);

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
+import { AuthProvider } from "@/components/auth/auth-provider";
 import { CommerceProvider } from "@/components/commerce/commerce-provider";
 import { SiteShell } from "@/components/layout/site-shell";
 import { siteConfig } from "@/config/site";
@@ -36,9 +37,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${beVietnamPro.variable} h-full scroll-smooth antialiased`}
     >
       <body className="min-h-full bg-background text-foreground">
-        <CommerceProvider>
-          <SiteShell>{children}</SiteShell>
-        </CommerceProvider>
+        <AuthProvider>
+          <CommerceProvider>
+            <SiteShell>{children}</SiteShell>
+          </CommerceProvider>
+        </AuthProvider>
       </body>
     </html>
   );

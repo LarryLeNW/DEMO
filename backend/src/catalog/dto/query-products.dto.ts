@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsEnum,
   IsInt,
   IsOptional,
@@ -8,6 +9,14 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+
+/** Accepts `?x=a&x=b` as well as `?x=a,b`. */
+const toList = ({ value }: { value: unknown }) =>
+  value === undefined || value === null || value === ''
+    ? undefined
+    : (Array.isArray(value) ? value : String(value).split(','))
+        .map((item) => String(item).trim())
+        .filter(Boolean);
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 import { ProductStatus } from '../catalog.enums.js';
 
@@ -49,13 +58,28 @@ export class QueryProductsDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({
     type: [Number],
-    description: 'Explicit ids (keeps the given order)',
+    description:
+      'Explicit ids (keeps the given order); comma-separated or repeated',
   })
   @IsOptional()
+  @Transform(toList)
   @Type(() => Number)
+  @ArrayMaxSize(100)
   @IsInt({ each: true })
   @Min(1, { each: true })
   ids?: number[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'Explicit slugs (keeps the given order); comma-separated or repeated',
+  })
+  @IsOptional()
+  @Transform(toList)
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(190, { each: true })
+  slugs?: string[];
 }
 
 export class QueryAdminProductsDto extends PaginationQueryDto {

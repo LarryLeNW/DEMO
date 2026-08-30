@@ -20,6 +20,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import { AccountPanel } from "@/components/auth/account-panel";
 import { formatCurrency } from "@/lib/format";
 import { generatedContent, type GeneratedProduct } from "@/lib/wp-content";
 
@@ -323,7 +324,9 @@ export function CommerceProvider({ children }: { children: ReactNode }) {
               />
             ) : null}
 
-            {drawer === "account" ? <AccountDrawer /> : null}
+            {drawer === "account" ? (
+              <AccountPanel onNavigate={() => setDrawer(null)} />
+            ) : null}
 
             {drawer === "checkout" ? (
               <CheckoutDrawer
@@ -541,32 +544,6 @@ function WishlistDrawer({
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function AccountDrawer() {
-  return (
-    <div className="space-y-4 p-5">
-      <p className="text-sm leading-6 text-muted">
-        Khu vực tài khoản mô phỏng cho clone frontend. Khi nối backend, form này sẽ
-        chuyển sang login/register thật.
-      </p>
-      {["Email hoặc số điện thoại", "Mật khẩu"].map((label) => (
-        <label key={label} className="block text-sm font-bold text-slate-800">
-          {label}
-          <input
-            className="mt-2 h-11 w-full rounded-md border border-border px-3 outline-none focus:border-primary"
-            type={label.includes("Mật") ? "password" : "text"}
-          />
-        </label>
-      ))}
-      <button className="h-11 w-full rounded-md bg-primary font-extrabold text-white">
-        Đăng nhập
-      </button>
-      <button className="h-11 w-full rounded-md border border-border font-extrabold text-slate-800">
-        Tạo tài khoản
-      </button>
     </div>
   );
 }

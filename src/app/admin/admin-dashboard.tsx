@@ -30,7 +30,6 @@ import {
   ShieldCheck,
   ShoppingCart,
   SlidersHorizontal,
-  Store,
   Tags,
   Users,
   WalletCards,
@@ -38,6 +37,8 @@ import {
   X,
 } from "lucide-react";
 import { AIHubLogo } from "@/components/aihub-logo";
+import { useAuth } from "@/components/auth/auth-provider";
+import { roleLabels } from "@/lib/api/auth";
 import styles from "./admin.module.css";
 
 export type AdminSection =
@@ -46,7 +47,6 @@ export type AdminSection =
   | "products"
   | "inventory"
   | "customers"
-  | "sellers"
   | "transactions"
   | "deposits"
   | "categories"
@@ -97,7 +97,6 @@ const navGroups: { label: string; items: { id: ModuleId; label: string; icon: Lu
     label: "Tài khoản",
     items: [
       { id: "customers", label: "Khách hàng", icon: Users },
-      { id: "sellers", label: "Người bán", icon: Store, badge: "3" },
     ],
   },
   {
@@ -208,25 +207,6 @@ const moduleDefinitions: Record<Exclude<ModuleId, "overview">, ModuleDefinition>
       { id: "KH-8818", name: "Lê Hoàng Nam", email: "hoangnam@example.com", orders: "18", spend: "6.150.000đ", status: "Tạm khóa" },
     ],
   },
-  sellers: {
-    title: "Quản lý người bán",
-    description: "Duyệt hồ sơ, theo dõi hiệu suất và quỹ bảo hiểm người bán.",
-    icon: Store,
-    columns: [
-      { key: "id", label: "Người bán" },
-      { key: "name", label: "Tên cửa hàng" },
-      { key: "products", label: "Sản phẩm" },
-      { key: "revenue", label: "Doanh thu" },
-      { key: "insurance", label: "Bảo hiểm" },
-      { key: "status", label: "Trạng thái" },
-    ],
-    rows: [
-      { id: "@aihubstorage", name: "AIHUB Storage", products: "42", revenue: "286.400.000đ", insurance: "1.368.000đ", status: "Đã xác minh" },
-      { id: "@tuanvivu", name: "Người Việt Content", products: "18", revenue: "92.800.000đ", insurance: "900.000đ", status: "Đã xác minh" },
-      { id: "@bearmedia", name: "Bear Media", products: "9", revenue: "38.500.000đ", insurance: "636.894đ", status: "Chờ duyệt" },
-      { id: "@uytinso1", name: "Uy Tín Số", products: "14", revenue: "61.200.000đ", insurance: "450.000đ", status: "Đã xác minh" },
-    ],
-  },
   transactions: {
     title: "Quản lý giao dịch",
     description: "Đối soát dòng tiền, thanh toán đơn hàng và hoàn tiền.",
@@ -260,8 +240,8 @@ const moduleDefinitions: Record<Exclude<ModuleId, "overview">, ModuleDefinition>
     ],
     rows: [
       { id: "YC-3912", account: "@minhanh", type: "Nạp tiền", value: "2.000.000đ", created: "8 phút trước", status: "Chờ duyệt" },
-      { id: "YC-3911", account: "@tuanvivu", type: "Rút tiền", value: "5.800.000đ", created: "22 phút trước", status: "Đang xử lý" },
-      { id: "YC-3910", account: "@bearmedia", type: "Rút tiền", value: "1.200.000đ", created: "45 phút trước", status: "Hoàn tất" },
+      { id: "YC-3911", account: "@hoangnam", type: "Rút tiền", value: "800.000đ", created: "22 phút trước", status: "Đang xử lý" },
+      { id: "YC-3910", account: "@thutrang", type: "Rút tiền", value: "300.000đ", created: "45 phút trước", status: "Hoàn tất" },
       { id: "YC-3909", account: "@quochuy", type: "Nạp tiền", value: "1.000.000đ", created: "1 giờ trước", status: "Hoàn tất" },
     ],
   },
@@ -301,7 +281,7 @@ const moduleDefinitions: Record<Exclude<ModuleId, "overview">, ModuleDefinition>
     rows: [
       { id: "Khách hàng mới", code: "AIHUB10", discount: "10%", uses: "284 / 500", end: "31/08/2026", status: "Đang chạy" },
       { id: "Cuối tuần vui vẻ", code: "WEEKEND50", discount: "50.000đ", uses: "92 / 200", end: "18/08/2026", status: "Đang chạy" },
-      { id: "Tri ân người bán", code: "SELLER20", discount: "20% phí", uses: "44 / 100", end: "25/08/2026", status: "Đã lên lịch" },
+      { id: "Sinh nhật AIHUB", code: "AIHUB15", discount: "15%", uses: "0 / 300", end: "25/08/2026", status: "Đã lên lịch" },
       { id: "Mùa hè AI", code: "SUMMERAI", discount: "15%", uses: "500 / 500", end: "31/07/2026", status: "Đã kết thúc" },
     ],
   },
@@ -358,7 +338,7 @@ const moduleDefinitions: Record<Exclude<ModuleId, "overview">, ModuleDefinition>
     ],
     rows: [
       { id: "Doanh thu theo sản phẩm", period: "Tháng 08/2026", owner: "Admin", updated: "Hôm nay", format: "Excel", status: "Sẵn sàng" },
-      { id: "Hiệu suất người bán", period: "Quý 3/2026", owner: "Minh Anh", updated: "Hôm qua", format: "PDF", status: "Sẵn sàng" },
+      { id: "Doanh thu theo danh mục", period: "Quý 3/2026", owner: "Minh Anh", updated: "Hôm qua", format: "PDF", status: "Sẵn sàng" },
       { id: "Tỷ lệ hoàn tiền", period: "30 ngày gần nhất", owner: "Hệ thống", updated: "2 giờ trước", format: "Dashboard", status: "Đang tạo" },
     ],
   },
@@ -405,12 +385,12 @@ const initialNotifications: AdminNotification[] = [
     unread: true,
   },
   {
-    id: "notification-seller",
-    title: "Người bán mới chờ xác minh",
-    description: "@bearmedia vừa hoàn tất hồ sơ xác minh cửa hàng.",
+    id: "notification-customer",
+    title: "Khách hàng mới đăng ký",
+    description: "Phạm Thu Trang vừa tạo tài khoản và đặt đơn đầu tiên.",
     time: "22 phút trước",
-    section: "sellers",
-    icon: Store,
+    section: "customers",
+    icon: Users,
     tone: "blue",
     unread: true,
   },
@@ -449,7 +429,7 @@ function StatusBadge({ children }: { children: string }) {
   return <span className={`${styles.status} ${styles[statusTone(children)]}`}>{children}</span>;
 }
 
-function AdminSidebar({ active, open, onSelect, onClose }: { active: ModuleId; open: boolean; onSelect: (id: ModuleId) => void; onClose: () => void }) {
+function AdminSidebar({ active, open, onSelect, onClose, onLogout }: { active: ModuleId; open: boolean; onSelect: (id: ModuleId) => void; onClose: () => void; onLogout: () => void }) {
   return (
     <>
       <button className={`${styles.backdrop} ${open ? styles.backdropOpen : ""}`} onClick={onClose} aria-label="Đóng menu" />
@@ -482,7 +462,7 @@ function AdminSidebar({ active, open, onSelect, onClose }: { active: ModuleId; o
         </nav>
         <div className={styles.sidebarFooter}>
           <AIHubLogo href="/admin" size="sm" admin className={styles.footerLogo} />
-          <Link href="/" className={styles.logoutButton} aria-label="Đăng xuất" title="Đăng xuất"><LogOut size={17} /></Link>
+          <button type="button" className={styles.logoutButton} aria-label="Đăng xuất" title="Đăng xuất" onClick={onLogout}><LogOut size={17} /></button>
         </div>
       </aside>
     </>
@@ -598,7 +578,7 @@ function Overview({ onNavigate, notify }: { onNavigate: (id: ModuleId) => void; 
             <div className={styles.activityList}>
               <div><span className={styles.cyan}><Package size={15} /></span><p><strong>Admin</strong> cập nhật giá Gemini Pro<small>8 phút trước</small></p></div>
               <div><span className={styles.green}><CheckCircle2 size={15} /></span><p>Đơn <strong>#AH10428</strong> đã hoàn tất<small>10 phút trước</small></p></div>
-              <div><span className={styles.blue}><Users size={15} /></span><p>Người bán <strong>@bearmedia</strong> gửi xác minh<small>22 phút trước</small></p></div>
+              <div><span className={styles.blue}><Users size={15} /></span><p>Khách hàng <strong>Phạm Thu Trang</strong> vừa đăng ký<small>22 phút trước</small></p></div>
             </div>
           </article>
         </div>
@@ -865,7 +845,7 @@ function createClientRow(definition: ModuleDefinition, draft: DraftData): DataRo
 }
 
 const completedStatus: Record<Exclude<ModuleId, "overview">, string> = {
-  orders: "Hoàn tất", products: "Đang bán", inventory: "Ổn định", customers: "Hoạt động", sellers: "Đã xác minh",
+  orders: "Hoàn tất", products: "Đang bán", inventory: "Ổn định", customers: "Hoạt động",
   transactions: "Thành công", deposits: "Hoàn tất", categories: "Hiển thị", promotions: "Đang chạy", content: "Đang hiển thị",
   support: "Đã đóng", reports: "Sẵn sàng", settings: "Đã cấu hình",
 };
@@ -875,6 +855,7 @@ const storageKey = "aihub-admin-client-rows-v1";
 
 export function AdminDashboard({ initialView = "overview" }: { initialView?: AdminSection }) {
   const router = useRouter();
+  const { user, logout } = useAuth();
   const active = initialView;
   const [menuOpen, setMenuOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -950,6 +931,18 @@ export function AdminDashboard({ initialView = "overview" }: { initialView?: Adm
     if (toastTimer.current) window.clearTimeout(toastTimer.current);
   }, []);
 
+  const profileInitials = (user?.fullName ?? "Quản trị viên")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(-2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("") || "AD";
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
+  };
+
   const notify = (message: string) => {
     setToast(message);
     if (toastTimer.current) window.clearTimeout(toastTimer.current);
@@ -1003,7 +996,7 @@ export function AdminDashboard({ initialView = "overview" }: { initialView?: Adm
 
   return (
     <div className={styles.shell}>
-      <AdminSidebar active={active} open={menuOpen} onSelect={selectModule} onClose={() => setMenuOpen(false)} />
+      <AdminSidebar active={active} open={menuOpen} onSelect={selectModule} onClose={() => setMenuOpen(false)} onLogout={handleLogout} />
       <div className={styles.mainArea}>
         <header className={styles.topbar}>
           <div className={styles.topbarLeft}>
@@ -1058,7 +1051,7 @@ export function AdminDashboard({ initialView = "overview" }: { initialView?: Adm
                 </section>
               )}
             </div>
-            <button className={styles.profileButton} onClick={() => selectModule("settings")}><span>AD</span><div><strong>Quản trị viên</strong><small>Toàn quyền</small></div><ChevronDown size={15} /></button>
+            <button className={styles.profileButton} onClick={() => selectModule("settings")}><span>{profileInitials}</span><div><strong>{user?.fullName ?? "Quản trị viên"}</strong><small>{user ? roleLabels[user.role] : "Toàn quyền"}</small></div><ChevronDown size={15} /></button>
           </div>
         </header>
         <main className={styles.content}>
