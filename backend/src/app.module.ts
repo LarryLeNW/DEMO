@@ -7,10 +7,16 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { AppController } from './app.controller.js';
 import { AuthModule } from './auth/auth.module.js';
+import { CatalogModule } from './catalog/catalog.module.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { validateEnv } from './config/env.validation.js';
+import { ContentModule } from './content/content.module.js';
 import { DatabaseModule } from './database/database.module.js';
+import { FinanceModule } from './finance/finance.module.js';
+import { WpImportModule } from './import/wp-import.module.js';
+import { OrdersModule } from './orders/orders.module.js';
+import { PromotionsModule } from './promotions/promotions.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
@@ -24,6 +30,12 @@ import { UsersModule } from './users/users.module.js';
     DatabaseModule,
     UsersModule,
     AuthModule,
+    CatalogModule,
+    PromotionsModule,
+    FinanceModule,
+    OrdersModule,
+    ContentModule,
+    WpImportModule,
   ],
   controllers: [AppController],
   providers: [
