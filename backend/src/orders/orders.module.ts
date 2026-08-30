@@ -5,6 +5,7 @@ import { ProductVariant } from '../catalog/entities/product-variant.entity.js';
 import { FinanceModule } from '../finance/finance.module.js';
 import { PromotionsModule } from '../promotions/promotions.module.js';
 import { Setting } from '../system/entities/setting.entity.js';
+import { SystemModule } from '../system/system.module.js';
 import { OrderItem } from './entities/order-item.entity.js';
 import { Order } from './entities/order.entity.js';
 import { Payment } from './entities/payment.entity.js';
@@ -26,6 +27,7 @@ import { OrdersService } from './orders.service.js';
     CatalogModule,
     PromotionsModule,
     FinanceModule,
+    SystemModule,
   ],
   controllers: [OrdersController, AdminOrdersController],
   providers: [OrdersService],

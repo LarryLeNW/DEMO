@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -21,11 +22,20 @@ import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Public } from '../common/decorators/public.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
+import { SearchQueryDto } from '../common/dto/search-query.dto.js';
 import { Role } from '../common/enums/role.enum.js';
-import { InventoryItemStatus, ProductStatus } from './catalog.enums.js';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard.js';
+import { User } from '../users/entities/user.entity.js';
+import {
+  InventoryItemStatus,
+  ProductStatus,
+  ReviewStatus,
+} from './catalog.enums.js';
 import { CategoriesService } from './categories.service.js';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto.js';
 import { ImportInventoryDto } from './dto/inventory.dto.js';
+import { CreateReviewDto, UpdateReviewStatusDto } from './dto/review.dto.js';
+import { ReviewsService } from './reviews.service.js';
 import {
   CreateProductDto,
   CreateVariantDto,
@@ -94,9 +104,11 @@ export class AdminCategoriesController {
   constructor(private readonly categories: CategoriesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Full category tree incl. hidden' })
+  @ApiOperation({
+    summary: 'Full category tree incl. hidden, with product counts',
+  })
   tree() {
-    return this.categories.findTree(true);
+    return this.categories.findTree(true, true);
   }
 
   @Post()
@@ -230,6 +242,14 @@ export class AdminVariantsController {
 export class AdminInventoryController {
   constructor(private readonly inventory: InventoryService) {}
 
+  @Get()
+  @ApiOperation({
+    summary: 'Kho hàng: every SKU with available/reserved counts',
+  })
+  list(@Query() query: SearchQueryDto) {
+    return this.inventory.listVariantsWithStock(query);
+  }
+
   @Post('items/:id/revoke')
   @ApiOperation({ summary: 'Remove a bad unit from stock' })
   revoke(
@@ -238,5 +258,67 @@ export class AdminInventoryController {
     @Body('note') note?: string,
   ) {
     return this.inventory.revokeItem(id, actorId, note);
+  }
+}
+
+// --------------------------------------------------------------------- reviews
+
+@ApiTags('catalog')
+@Controller('products/:slug/reviews')
+export class ProductReviewsController {
+  constructor(private readonly reviews: ReviewsService) {}
+
+  @Public()
+  @Get()
+  @ApiOperation({ summary: 'Approved reviews + rating summary' })
+  @ApiQuery({ name: 'rating', required: false, description: '1-5 filter' })
+  list(
+    @Param('slug') slug: string,
+    @Query() query: PaginationQueryDto,
+    @Query('rating') rating?: string,
+  ) {
+    const parsed = rating ? Number(rating) : undefined;
+    return this.reviews.listApproved(
+      slug,
+      query,
+      parsed && parsed >= 1 && parsed <= 5 ? parsed : undefined,
+    );
+  }
+
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
+  @Post()
+  @ApiOperation({ summary: 'Submit a review (held for moderation)' })
+  create(
+    @Param('slug') slug: string,
+    @Body() dto: CreateReviewDto,
+    @CurrentUser() user: User | null,
+  ) {
+    return this.reviews.create(slug, dto, user?.id ?? null);
+  }
+}
+
+@ApiTags('admin/catalog')
+@ApiBearerAuth()
+@Roles(Role.Admin)
+@Controller('admin/reviews')
+export class AdminReviewsController {
+  constructor(private readonly reviews: ReviewsService) {}
+
+  @Get()
+  @ApiQuery({ name: 'status', enum: ReviewStatus, required: false })
+  list(
+    @Query() query: PaginationQueryDto,
+    @Query('status') status?: ReviewStatus,
+  ) {
+    return this.reviews.listAdmin(query, status);
+  }
+
+  @Patch(':id/status')
+  setStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateReviewStatusDto,
+  ) {
+    return this.reviews.setStatus(id, dto.status);
   }
 }

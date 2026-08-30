@@ -7,5 +7,7 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.e2e-spec.ts'],
+    // Every suite boots the app against the same MySQL (schema sync + seeds); run them one by one.
+    fileParallelism: false,
   },
 });

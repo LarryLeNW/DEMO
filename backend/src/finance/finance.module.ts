@@ -31,10 +31,17 @@ import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { Role } from '../common/enums/role.enum.js';
+import { SearchQueryDto } from '../common/dto/search-query.dto.js';
+import { SystemModule } from '../system/system.module.js';
 import { FundRequest } from './entities/fund-request.entity.js';
 import { WalletTransaction } from './entities/wallet-transaction.entity.js';
 import { Wallet } from './entities/wallet.entity.js';
-import { FundRequestStatus, FundRequestType } from './finance.enums.js';
+import {
+  FundRequestStatus,
+  FundRequestType,
+  WalletTransactionStatus,
+  WalletTransactionType,
+} from './finance.enums.js';
 import { WalletsService } from './wallets.service.js';
 
 export class CreateFundRequestDto {
@@ -162,9 +169,40 @@ export class AdminFundRequestsController {
   }
 }
 
+@ApiTags('admin/finance')
+@ApiBearerAuth()
+@Roles(Role.Admin)
+@Controller('admin/transactions')
+export class AdminTransactionsController {
+  constructor(private readonly wallets: WalletsService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'Giao dịch: wallet ledger across all users' })
+  @ApiQuery({ name: 'type', enum: WalletTransactionType, required: false })
+  @ApiQuery({ name: 'status', enum: WalletTransactionStatus, required: false })
+  list(
+    @Query() query: SearchQueryDto,
+    @Query('type') type?: WalletTransactionType,
+    @Query('status') status?: WalletTransactionStatus,
+  ) {
+    return this.wallets.listTransactionsAdmin(query, {
+      type,
+      status,
+      search: query.search,
+    });
+  }
+}
+
 @Module({
-  imports: [TypeOrmModule.forFeature([Wallet, WalletTransaction, FundRequest])],
-  controllers: [WalletController, AdminFundRequestsController],
+  imports: [
+    TypeOrmModule.forFeature([Wallet, WalletTransaction, FundRequest]),
+    SystemModule,
+  ],
+  controllers: [
+    WalletController,
+    AdminFundRequestsController,
+    AdminTransactionsController,
+  ],
   providers: [WalletsService],
   exports: [WalletsService],
 })

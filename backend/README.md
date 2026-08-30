@@ -81,7 +81,11 @@ npm run import:wp -- path/to/file.json
 | Orders      | `POST /orders` (guest or bearer), `GET /orders/lookup?code&email`, `GET /orders/me`, `GET /orders/me/:code` | `GET admin/orders`, `GET admin/orders/:id`, `POST …/confirm-payment`, `POST …/complete`, `POST …/cancel`, `POST …/refund` |
 | Promotions  | applied via `promotionCode` on checkout                                | `admin/promotions` CRUD                                                                 |
 | Wallet      | `GET /wallet`, `GET /wallet/transactions`, `POST /wallet/fund-requests` (bearer) | `GET admin/fund-requests`, `POST …/:id/approve`, `POST …/:id/reject`                    |
-| Content     | `GET /posts?category&search`, `GET /posts/:slug`, `GET /pages/:slug`, `GET /content-blocks/:placement` | – (next step)                                                                           |
+| Content     | `GET /posts?category&search`, `GET /posts/:slug`, `GET /pages/:slug`, `GET /content-blocks/:placement` | `admin/content/blocks` CRUD, `GET admin/content/posts`, `GET admin/content/pages`, `PATCH …/:id/status/:status` |
+| Reviews     | `GET /products/:slug/reviews`, `POST /products/:slug/reviews` (held for moderation) | `GET admin/reviews?status`, `PATCH admin/reviews/:id/status` (recomputes product rating) |
+| Support     | `POST /support/tickets` (guest or bearer), `GET /support/tickets`, `GET …/:id`, `POST …/:id/messages` | `GET admin/support/tickets`, `GET …/:id`, `POST …/:id/messages`, `PATCH …/:id` |
+| Settings    | `GET /settings/public` (hotline, Zalo, home sections…)                 | `GET admin/settings`, `PUT admin/settings/:key` (seeded defaults in `settings.service.ts`) |
+| System      | –                                                                      | `GET admin/stats` (overview, chart, low stock, activity, badges), `GET admin/notifications`, `POST …/:id/read`, `GET admin/inventory`, `GET admin/transactions`, `GET/POST admin/reports` |
 
 Order lifecycle: `pending_payment` → (`confirm-payment` or wallet) `processing` → (`complete`:
 auto SKUs are delivered from `inventory_items`, manual SKUs need `deliveryNotes[itemId]`)

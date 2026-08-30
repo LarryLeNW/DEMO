@@ -25,6 +25,11 @@ import { WalletsService } from '../finance/wallets.service.js';
 import { PromotionScope } from '../promotions/promotions.enums.js';
 import { PromotionsService } from '../promotions/promotions.service.js';
 import { Setting } from '../system/entities/setting.entity.js';
+import { NotificationsService } from '../system/notifications.service.js';
+import {
+  NotificationSection,
+  NotificationTone,
+} from '../system/system.enums.js';
 import { User } from '../users/entities/user.entity.js';
 import { CreateOrderDto, QueryOrdersDto } from './dto/order.dto.js';
 import { OrderItem } from './entities/order-item.entity.js';
@@ -71,6 +76,7 @@ export class OrdersService {
     private readonly inventory: InventoryService,
     private readonly promotions: PromotionsService,
     private readonly wallets: WalletsService,
+    private readonly notifications: NotificationsService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -210,6 +216,19 @@ export class OrdersService {
         where: { id: created.id },
         relations: ORDER_RELATIONS,
       });
+    });
+
+    await this.notifications.notifyAdmins({
+      title: `Có đơn hàng mới #${order.code}`,
+      body: `${order.customerName} · ${order.total.toLocaleString('vi-VN')}đ · ${
+        order.status === OrderStatus.Processing
+          ? 'đã thanh toán bằng ví'
+          : 'chờ thanh toán'
+      }`,
+      section: NotificationSection.Orders,
+      tone: NotificationTone.Cyan,
+      entityType: 'order',
+      entityId: order.id,
     });
 
     return {
@@ -431,6 +450,24 @@ export class OrdersService {
             item.quantity,
             adminId,
           );
+          const available = await this.inventory.countAvailable(
+            item.variantId,
+            manager,
+          );
+          const threshold = item.product?.lowStockThreshold ?? 0;
+          if (available < threshold) {
+            void this.notifications.notifyAdmins({
+              title: `${item.productName} sắp hết hàng`,
+              body: `SKU ${item.sku ?? item.variantId} chỉ còn ${available} suất khả dụng (ngưỡng ${threshold}).`,
+              section: NotificationSection.Inventory,
+              tone:
+                available === 0
+                  ? NotificationTone.Danger
+                  : NotificationTone.Amber,
+              entityType: 'product_variant',
+              entityId: item.variantId,
+            });
+          }
         } else if (!deliveryNotes[String(item.id)]) {
           throw new BadRequestException(
             `Dòng "${item.productName}" giao thủ công: cần deliveryNotes[${item.id}]`,

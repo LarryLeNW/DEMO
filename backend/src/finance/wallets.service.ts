@@ -9,6 +9,11 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { assignCode, placeholderCode } from '../common/utils/codes.js';
 import { paginate } from '../common/utils/pagination.js';
+import { NotificationsService } from '../system/notifications.service.js';
+import {
+  NotificationSection,
+  NotificationTone,
+} from '../system/system.enums.js';
 import { FundRequest } from './entities/fund-request.entity.js';
 import { WalletTransaction } from './entities/wallet-transaction.entity.js';
 import { Wallet } from './entities/wallet.entity.js';
@@ -37,6 +42,7 @@ export class WalletsService {
     private readonly transactions: Repository<WalletTransaction>,
     @InjectRepository(FundRequest)
     private readonly fundRequests: Repository<FundRequest>,
+    private readonly notifications: NotificationsService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -171,35 +177,78 @@ export class WalletsService {
       }
     }
 
-    return this.dataSource.transaction(async (manager) => {
-      const request = await manager.save(
-        manager.create(FundRequest, {
-          code: placeholderCode(),
-          userId,
-          type: input.type,
-          amount: input.amount,
-          status: FundRequestStatus.Pending,
-          bankName: input.bankName ?? null,
-          bankAccountNumber: input.bankAccountNumber ?? null,
-          bankAccountName: input.bankAccountName ?? null,
-          transferContent: null,
-          proofImageUrl: null,
-          note: input.note ?? null,
-        }),
+    return this.dataSource
+      .transaction(async (manager) => {
+        const request = await manager.save(
+          manager.create(FundRequest, {
+            code: placeholderCode(),
+            userId,
+            type: input.type,
+            amount: input.amount,
+            status: FundRequestStatus.Pending,
+            bankName: input.bankName ?? null,
+            bankAccountNumber: input.bankAccountNumber ?? null,
+            bankAccountName: input.bankAccountName ?? null,
+            transferContent: null,
+            proofImageUrl: null,
+            note: input.note ?? null,
+          }),
+        );
+        request.code = await assignCode(
+          manager,
+          FundRequest,
+          request.id,
+          'YC-',
+          3000,
+        );
+        if (input.type === FundRequestType.Deposit) {
+          request.transferContent = `NAP ${request.code}`;
+          await manager.save(request);
+        }
+        return request;
+      })
+      .then(async (request) => {
+        await this.notifications.notifyAdmins({
+          title: `${input.type === FundRequestType.Deposit ? 'Yêu cầu nạp' : 'Yêu cầu rút'} ${request.code}`,
+          body: `${request.amount.toLocaleString('vi-VN')}đ đang chờ duyệt.`,
+          section: NotificationSection.Deposits,
+          tone: NotificationTone.Amber,
+          entityType: 'fund_request',
+          entityId: request.id,
+        });
+        return request;
+      });
+  }
+
+  /** Admin "Giao dịch": the full wallet ledger with the account owner. */
+  async listTransactionsAdmin(
+    query: PaginationQueryDto,
+    filter: {
+      type?: WalletTransactionType;
+      status?: WalletTransactionStatus;
+      search?: string;
+    },
+  ) {
+    const qb = this.transactions
+      .createQueryBuilder('transaction')
+      .innerJoinAndSelect('transaction.wallet', 'wallet')
+      .innerJoinAndSelect('wallet.user', 'user')
+      .orderBy('transaction.id', 'DESC');
+    if (filter.type)
+      qb.andWhere('transaction.type = :type', { type: filter.type });
+    if (filter.status)
+      qb.andWhere('transaction.status = :status', { status: filter.status });
+    if (filter.search) {
+      qb.andWhere(
+        '(transaction.code LIKE :search OR user.email LIKE :search OR user.fullName LIKE :search)',
+        { search: `%${filter.search.trim()}%` },
       );
-      request.code = await assignCode(
-        manager,
-        FundRequest,
-        request.id,
-        'YC-',
-        3000,
-      );
-      if (input.type === FundRequestType.Deposit) {
-        request.transferContent = `NAP ${request.code}`;
-        await manager.save(request);
-      }
-      return request;
-    });
+    }
+    const [items, total] = await qb
+      .skip(query.skip)
+      .take(query.limit)
+      .getManyAndCount();
+    return paginate(items, total, query);
   }
 
   async listFundRequests(

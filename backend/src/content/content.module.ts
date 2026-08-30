@@ -14,6 +14,10 @@ import { Repository } from 'typeorm';
 import { Public } from '../common/decorators/public.decorator.js';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { paginate } from '../common/utils/pagination.js';
+import {
+  AdminContentController,
+  ContentAdminService,
+} from './content-admin.js';
 import { PublishStatus } from './content.enums.js';
 import { ContentBlock } from './entities/content-block.entity.js';
 import { Page } from './entities/page.entity.js';
@@ -63,13 +67,31 @@ export class ContentService {
       });
     }
 
-    const [items, total] = await qb
+    // Reading time (~220 words/min) computed in SQL so the listing can skip the body.
+    qb.addSelect(
+      `CEIL((LENGTH(post.content_html) - LENGTH(REPLACE(post.content_html, ' ', '')) + 1) / 220)`,
+      'reading_minutes',
+    );
+    const total = await qb.getCount();
+    const { entities, raw } = await qb
       .skip(query.skip)
       .take(query.limit)
-      .getManyAndCount();
+      .getRawAndEntities<{ reading_minutes: string }>();
+    const minutesById = new Map<number, number>();
+    for (const row of raw as ({ post_id?: number } & {
+      reading_minutes: string;
+    })[]) {
+      if (row.post_id !== undefined) {
+        minutesById.set(Number(row.post_id), Number(row.reading_minutes ?? 1));
+      }
+    }
     // Listing pages only need the excerpt.
     return paginate(
-      items.map((post) => ({ ...post, contentHtml: undefined })),
+      entities.map((post) => ({
+        ...post,
+        contentHtml: undefined,
+        readingMinutes: Math.max(1, minutesById.get(post.id) ?? 1),
+      })),
       total,
       query,
     );
@@ -81,7 +103,11 @@ export class ContentService {
       relations: { categories: true },
     });
     if (!post) throw new NotFoundException('Post not found');
-    return post;
+    const words = (post.contentHtml ?? '')
+      .replace(/<[^>]+>/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean).length;
+    return { ...post, readingMinutes: Math.max(1, Math.ceil(words / 220)) };
   }
 
   async getPage(slug: string) {
@@ -141,8 +167,8 @@ export class ContentController {
 
 @Module({
   imports: [TypeOrmModule.forFeature([Post, PostCategory, Page, ContentBlock])],
-  controllers: [ContentController],
-  providers: [ContentService],
-  exports: [ContentService],
+  controllers: [ContentController, AdminContentController],
+  providers: [ContentService, ContentAdminService],
+  exports: [ContentService, ContentAdminService],
 })
 export class ContentModule {}

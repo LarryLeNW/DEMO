@@ -19,11 +19,31 @@ export class CategoriesService {
   ) {}
 
   /** Visible categories as a nested tree ordered by `sort_order` (storefront menu). */
-  async findTree(includeHidden = false): Promise<CategoryNode[]> {
+  async findTree(
+    includeHidden = false,
+    withCounts = false,
+  ): Promise<CategoryNode[]> {
     const rows = await this.categories.find({
       where: includeHidden ? {} : { isVisible: true },
       order: { sortOrder: 'ASC', name: 'ASC' },
     });
+
+    if (withCounts) {
+      const counts = await this.categories.manager.query<
+        { categoryId: number; count: string }[]
+      >(
+        `SELECT pc.category_id categoryId, COUNT(*) count
+         FROM product_categories pc INNER JOIN products p ON p.id = pc.product_id
+         WHERE p.deleted_at IS NULL GROUP BY pc.category_id`,
+      );
+      const byId = new Map(
+        counts.map((row) => [Number(row.categoryId), Number(row.count)]),
+      );
+      for (const row of rows) {
+        (row as Category & { productCount: number }).productCount =
+          byId.get(row.id) ?? 0;
+      }
+    }
     return buildTree(rows);
   }
 

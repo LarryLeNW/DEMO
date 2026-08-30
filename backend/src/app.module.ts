@@ -17,6 +17,8 @@ import { FinanceModule } from './finance/finance.module.js';
 import { WpImportModule } from './import/wp-import.module.js';
 import { OrdersModule } from './orders/orders.module.js';
 import { PromotionsModule } from './promotions/promotions.module.js';
+import { SupportModule } from './support/support.module.js';
+import { SystemModule } from './system/system.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
@@ -35,6 +37,8 @@ import { UsersModule } from './users/users.module.js';
     FinanceModule,
     OrdersModule,
     ContentModule,
+    SupportModule,
+    SystemModule,
     WpImportModule,
   ],
   controllers: [AppController],

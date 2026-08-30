@@ -94,10 +94,26 @@ export class UsersService {
       );
     }
 
-    const [items, total] = await qb
+    // Admin "Khách hàng": order count + lifetime spend per user (paid orders only).
+    qb.addSelect(
+      `(SELECT COUNT(*) FROM orders o WHERE o.user_id = user.id AND o.status IN ('processing','completed'))`,
+      'order_count',
+    ).addSelect(
+      `(SELECT COALESCE(SUM(o.total),0) FROM orders o WHERE o.user_id = user.id AND o.status IN ('processing','completed'))`,
+      'total_spent',
+    );
+
+    const total = await qb.getCount();
+    const { entities, raw } = await qb
       .skip((query.page - 1) * query.limit)
       .take(query.limit)
-      .getManyAndCount();
+      .getRawAndEntities<{ order_count: string; total_spent: string }>();
+    const items = entities.map((user, index) =>
+      Object.assign(user, {
+        orderCount: Number(raw[index]?.order_count ?? 0),
+        totalSpent: Number(raw[index]?.total_spent ?? 0),
+      }),
+    );
 
     return {
       items,

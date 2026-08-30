@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
+import { SearchQueryDto } from '../common/dto/search-query.dto.js';
 import { paginate } from '../common/utils/pagination.js';
 import { InventoryItemStatus, InventoryMovementType } from './catalog.enums.js';
 import { InventoryItem } from './entities/inventory-item.entity.js';
@@ -60,6 +61,86 @@ export class InventoryService {
       );
       return { imported: payloads.length, available };
     });
+  }
+
+  /** Admin "Kho hàng" table: every SKU with its stock counters and last movement. */
+  async listVariantsWithStock(query: SearchQueryDto) {
+    const qb = this.variants
+      .createQueryBuilder('variant')
+      .innerJoin('variant.product', 'product')
+      .select([
+        'variant.id AS id',
+        'variant.sku AS sku',
+        'variant.name AS name',
+        'variant.deliveryType AS deliveryType',
+        'variant.isEnabled AS isEnabled',
+        'product.id AS productId',
+        'product.name AS productName',
+        'product.lowStockThreshold AS lowStockThreshold',
+      ])
+      .addSelect(
+        `(SELECT COUNT(*) FROM inventory_items i WHERE i.variant_id = variant.id AND i.status = 'available')`,
+        'available',
+      )
+      .addSelect(
+        `(SELECT COUNT(*) FROM inventory_items i WHERE i.variant_id = variant.id AND i.status = 'reserved')`,
+        'reserved',
+      )
+      .addSelect(
+        `(SELECT COUNT(*) FROM inventory_items i WHERE i.variant_id = variant.id AND i.status = 'delivered')`,
+        'delivered',
+      )
+      .addSelect(
+        `(SELECT MAX(m.created_at) FROM inventory_movements m WHERE m.variant_id = variant.id)`,
+        'lastMovementAt',
+      )
+      .where('product.deletedAt IS NULL')
+      .orderBy('product.name', 'ASC')
+      .addOrderBy('variant.sortOrder', 'ASC');
+
+    if (query.search) {
+      qb.andWhere(
+        '(variant.sku LIKE :search OR product.name LIKE :search OR variant.name LIKE :search)',
+        {
+          search: `%${query.search.trim()}%`,
+        },
+      );
+    }
+
+    const total = await qb.getCount();
+    const rows = await qb.offset(query.skip).limit(query.limit).getRawMany<{
+      id: number;
+      sku: string;
+      name: string;
+      deliveryType: string;
+      isEnabled: number;
+      productId: number;
+      productName: string;
+      lowStockThreshold: number;
+      available: string;
+      reserved: string;
+      delivered: string;
+      lastMovementAt: Date | null;
+    }>();
+
+    return paginate(
+      rows.map((row) => ({
+        id: Number(row.id),
+        sku: row.sku,
+        name: row.name,
+        deliveryType: row.deliveryType,
+        isEnabled: Boolean(Number(row.isEnabled)),
+        productId: Number(row.productId),
+        productName: row.productName,
+        lowStockThreshold: Number(row.lowStockThreshold),
+        available: Number(row.available),
+        reserved: Number(row.reserved),
+        delivered: Number(row.delivered),
+        lastMovementAt: row.lastMovementAt,
+      })),
+      total,
+      query,
+    );
   }
 
   async listItems(
