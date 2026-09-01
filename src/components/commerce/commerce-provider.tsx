@@ -21,8 +21,12 @@ import {
   X,
 } from "lucide-react";
 import { AccountPanel } from "@/components/auth/account-panel";
+import { useAuth } from "@/components/auth/auth-provider";
+import { ZaloContactModal } from "@/components/commerce/zalo-contact-modal";
+import { OrderSummary } from "@/components/orders/order-summary";
+import { ordersApi, type ApiOrder, type PaymentMethod } from "@/lib/api/orders";
 import { formatCurrency } from "@/lib/format";
-import { generatedContent, type GeneratedProduct } from "@/lib/wp-content";
+import type { ZaloContact } from "@/lib/zalo-contact";
 
 export type CommerceProductSnapshot = {
   id: string;
@@ -35,6 +39,8 @@ export type CommerceProductSnapshot = {
 
 export type CartLine = CommerceProductSnapshot & {
   lineId: string;
+  /** Backend variant id; lines added while the API was offline have none and cannot be ordered. */
+  variantId?: number;
   variantLabel: string;
   durationLabel?: string;
   quantity: number;
@@ -45,7 +51,7 @@ type CheckoutDraft = {
   phone: string;
   email: string;
   note: string;
-  paymentMethod: "bank" | "zalo";
+  paymentMethod: PaymentMethod;
 };
 
 export type CommerceDrawer = "cart" | "wishlist" | "account" | "checkout";
@@ -60,7 +66,12 @@ type CommerceContextValue = {
   isWishlisted: (slug: string) => boolean;
   addToCart: (
     product: CommerceProductSnapshot,
-    options?: { variantLabel?: string; durationLabel?: string; quantity?: number },
+    options?: {
+      variantId?: number;
+      variantLabel?: string;
+      durationLabel?: string;
+      quantity?: number;
+    },
   ) => void;
   removeFromCart: (lineId: string) => void;
   updateQuantity: (lineId: string, quantity: number) => void;
@@ -117,36 +128,47 @@ function wishlistSnapshotFromStoredItem(value: unknown) {
   };
 }
 
+/** Legacy wishlist entries stored only a slug; keep the link, the card shows no price. */
 function wishlistSnapshotFromSlug(slug: string): CommerceProductSnapshot {
-  const product = (generatedContent as { products: GeneratedProduct[] }).products.find(
-    (item) => item.path === slug || item.slug === slug,
-  );
-
   return {
-    id: String(product?.id ?? slug),
-    slug: product?.path ?? slug,
-    title: product?.title ?? `/${slug}`,
-    image: product?.featuredImage,
-    price: product ? 99000 : 0,
-    regularPrice: product ? 199000 : undefined,
+    id: slug,
+    slug,
+    title: `/${slug}`,
+    image: undefined,
+    price: 0,
+    regularPrice: undefined,
   };
 }
 
-export function CommerceProvider({ children }: { children: ReactNode }) {
+export function CommerceProvider({ children, zaloContact }: { children: ReactNode; zaloContact?: ZaloContact }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [wishlist, setWishlist] = useState<CommerceProductSnapshot[]>([]);
   const [drawer, setDrawer] = useState<CommerceDrawer | null>(
     null,
   );
+  const [contactOpen, setContactOpen] = useState(false);
   const [hasLoadedStorage, setHasLoadedStorage] = useState(false);
+  const { user } = useAuth();
   const [checkoutDraft, setCheckoutDraft] = useState<CheckoutDraft>({
     name: "",
     phone: "",
     email: "",
     note: "",
-    paymentMethod: "bank",
+    paymentMethod: "bank_transfer",
   });
-  const [orderCode, setOrderCode] = useState<string | null>(null);
+  const [placedOrder, setPlacedOrder] = useState<ApiOrder | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [checkoutPending, setCheckoutPending] = useState(false);
+
+  // Signed-in users get their profile pre-filled until they type something else.
+  const effectiveDraft: CheckoutDraft = {
+    ...checkoutDraft,
+    name: checkoutDraft.name || user?.fullName || "",
+    email: checkoutDraft.email || user?.email || "",
+    phone: checkoutDraft.phone || user?.phone || "",
+    paymentMethod:
+      checkoutDraft.paymentMethod === "wallet" && !user ? "bank_transfer" : checkoutDraft.paymentMethod,
+  };
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -179,7 +201,8 @@ export function CommerceProvider({ children }: { children: ReactNode }) {
     (product, options) => {
       const variantLabel = options?.variantLabel ?? "Gói mặc định";
       const durationLabel = options?.durationLabel;
-      const lineKey = `${product.slug}::${variantLabel}::${durationLabel ?? ""}`;
+      const variantId = options?.variantId;
+      const lineKey = `${product.slug}::${variantId ?? variantLabel}::${durationLabel ?? ""}`;
       const quantity = options?.quantity ?? 1;
 
       setCart((current) => {
@@ -197,6 +220,7 @@ export function CommerceProvider({ children }: { children: ReactNode }) {
           {
             ...product,
             lineId: lineKey,
+            variantId,
             variantLabel,
             durationLabel,
             quantity,
@@ -252,19 +276,46 @@ export function CommerceProvider({ children }: { children: ReactNode }) {
       openCart: () => setDrawer("cart"),
       openWishlist: () => setDrawer("wishlist"),
       openAccount: () => setDrawer("account"),
-      openCheckout: () => setDrawer("checkout"),
+      openCheckout: () => {
+        setPlacedOrder(null);
+        setCheckoutError(null);
+        setDrawer("checkout");
+      },
     }),
     [addToCart, cart, drawer, removeFromCart, subtotal, toggleWishlist, updateQuantity, wishlist],
   );
 
-  function submitCheckout() {
-    const nextCode = `KTK${Date.now().toString().slice(-7)}`;
-    setOrderCode(nextCode);
-    window.localStorage.setItem(
-      "ktk.lastOrder.v1",
-      JSON.stringify({ code: nextCode, cart, checkoutDraft, total: subtotal }),
-    );
-    setCart([]);
+  async function submitCheckout() {
+    const missing = cart.filter((line) => !line.variantId);
+    if (missing.length) {
+      setCheckoutError(
+        `Giỏ hàng có sản phẩm được thêm khi máy chủ chưa sẵn sàng (${missing
+          .map((line) => line.title)
+          .join(", ")}). Vui lòng xóa và thêm lại.`,
+      );
+      return;
+    }
+
+    setCheckoutError(null);
+    setCheckoutPending(true);
+    try {
+      const order = await ordersApi.create({
+        customer: {
+          name: effectiveDraft.name.trim(),
+          phone: effectiveDraft.phone.trim(),
+          email: effectiveDraft.email.trim(),
+        },
+        items: cart.map((line) => ({ variantId: line.variantId as number, quantity: line.quantity })),
+        paymentMethod: effectiveDraft.paymentMethod,
+        note: effectiveDraft.note.trim() || undefined,
+      });
+      setPlacedOrder(order);
+      setCart([]);
+    } catch (error) {
+      setCheckoutError(error instanceof Error ? error.message : "Không tạo được đơn hàng.");
+    } finally {
+      setCheckoutPending(false);
+    }
   }
 
   return (
@@ -308,7 +359,16 @@ export function CommerceProvider({ children }: { children: ReactNode }) {
                 cart={cart}
                 subtotal={subtotal}
                 onProductClick={() => setDrawer(null)}
-                onCheckout={() => setDrawer("checkout")}
+                // Tạm thời (09/2026): thanh toán ngân hàng chưa xử lý — đóng drawer giỏ và mở popup Zalo.
+                // Khôi phục `() => setDrawer("checkout")` khi sẵn sàng.
+                onCheckout={
+                  zaloContact
+                    ? () => {
+                        setDrawer(null);
+                        setContactOpen(true);
+                      }
+                    : () => setDrawer("checkout")
+                }
                 onRemove={removeFromCart}
                 onUpdateQuantity={updateQuantity}
               />
@@ -331,15 +391,38 @@ export function CommerceProvider({ children }: { children: ReactNode }) {
             {drawer === "checkout" ? (
               <CheckoutDrawer
                 cart={cart}
-                draft={checkoutDraft}
-                orderCode={orderCode}
+                draft={effectiveDraft}
+                placedOrder={placedOrder}
+                error={checkoutError}
+                pending={checkoutPending}
+                walletAvailable={Boolean(user)}
                 subtotal={subtotal}
                 onChange={setCheckoutDraft}
-                onSubmit={submitCheckout}
+                onSubmit={() => void submitCheckout()}
+                onClose={() => setDrawer(null)}
               />
             ) : null}
           </aside>
         </div>
+      ) : null}
+      {zaloContact ? (
+        <ZaloContactModal
+          open={contactOpen}
+          onClose={() => setContactOpen(false)}
+          zaloLink={zaloContact.zaloLink}
+          hotline={zaloContact.hotline}
+          zaloQr={zaloContact.zaloQr}
+          message={
+            <>
+              Thanh toán trực tuyến đang được hoàn thiện. Nhắn Zalo cho chúng tôi để đặt{" "}
+              <strong className="text-slate-900">
+                {cart.reduce((sum, line) => sum + line.quantity, 0)} sản phẩm
+              </strong>{" "}
+              trong giỏ — tạm tính <strong className="text-red-600">{formatCurrency(subtotal)}</strong> — và nhận hàng
+              nhanh nhất.
+            </>
+          }
+        />
       ) : null}
     </CommerceContext.Provider>
   );
@@ -551,34 +634,55 @@ function WishlistDrawer({
 function CheckoutDrawer({
   cart,
   draft,
-  orderCode,
+  placedOrder,
+  error,
+  pending,
+  walletAvailable,
   subtotal,
   onChange,
   onSubmit,
+  onClose,
 }: {
   cart: CartLine[];
   draft: CheckoutDraft;
-  orderCode: string | null;
+  placedOrder: ApiOrder | null;
+  error: string | null;
+  pending: boolean;
+  walletAvailable: boolean;
   subtotal: number;
   onChange: (draft: CheckoutDraft) => void;
   onSubmit: () => void;
+  onClose: () => void;
 }) {
-  if (orderCode) {
+  if (placedOrder) {
     return (
-      <div className="grid flex-1 place-items-center p-6 text-center">
-        <div>
-          <PackageCheck className="mx-auto text-success" size={52} />
-          <h3 className="mt-4 text-xl font-extrabold text-slate-950">
-            Đã tạo đơn {orderCode}
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            Đây là luồng checkout mô phỏng. Khi nối backend, đơn sẽ được gửi lên API,
-            xác nhận chuyển khoản và gửi tài khoản qua email.
+      <div className="flex-1 overflow-auto p-5">
+        <div className="mb-4 text-center">
+          <PackageCheck className="mx-auto text-success" size={44} />
+          <h3 className="mt-2 text-lg font-extrabold text-slate-950">Đặt hàng thành công</h3>
+          <p className="mt-1 text-[13px] leading-5 text-muted">
+            {placedOrder.status === "pending_payment"
+              ? "Chuyển khoản theo hướng dẫn bên dưới, đơn sẽ được xử lý ngay khi nhận tiền."
+              : "Đơn đã được thanh toán và đang được xử lý."}
           </p>
         </div>
+        <OrderSummary order={placedOrder} compact />
+        <Link
+          href={`/kiem-tra-don-hang?code=${encodeURIComponent(placedOrder.code)}&email=${encodeURIComponent(placedOrder.customerEmail)}`}
+          className="focus-ring mt-4 inline-flex h-11 w-full items-center justify-center rounded-md border border-border font-extrabold text-slate-800 transition hover:bg-slate-50"
+          onClick={onClose}
+        >
+          Theo dõi đơn hàng
+        </Link>
       </div>
     );
   }
+
+  const paymentOptions: [PaymentMethod, string][] = [
+    ["bank_transfer", "Chuyển khoản ACB / QR"],
+    ["zalo", "Liên hệ Zalo để xác nhận"],
+    ...(walletAvailable ? ([["wallet", "Trừ vào số dư AIHUB"]] as [PaymentMethod, string][]) : []),
+  ];
 
   return (
     <div className="flex-1 overflow-auto p-5">
@@ -600,6 +704,7 @@ function CheckoutDrawer({
               className="mt-2 h-11 w-full rounded-md border border-border px-3 outline-none focus:border-primary"
               type={type}
               value={draft[field as keyof CheckoutDraft]}
+              disabled={pending}
               onChange={(event) =>
                 onChange({ ...draft, [field]: event.currentTarget.value })
               }
@@ -611,14 +716,12 @@ function CheckoutDrawer({
           <textarea
             className="mt-2 min-h-24 w-full rounded-md border border-border p-3 outline-none focus:border-primary"
             value={draft.note}
+            disabled={pending}
             onChange={(event) => onChange({ ...draft, note: event.currentTarget.value })}
           />
         </label>
         <div className="grid gap-2">
-          {[
-            ["bank", "Chuyển khoản ACB / QR"],
-            ["zalo", "Liên hệ Zalo để xác nhận"],
-          ].map(([value, label]) => (
+          {paymentOptions.map(([value, label]) => (
             <label
               key={value}
               className="flex items-center gap-2 rounded-md border border-border p-3 text-sm font-bold"
@@ -626,21 +729,28 @@ function CheckoutDrawer({
               <input
                 type="radio"
                 checked={draft.paymentMethod === value}
-                onChange={() =>
-                  onChange({ ...draft, paymentMethod: value as CheckoutDraft["paymentMethod"] })
-                }
+                disabled={pending}
+                onChange={() => onChange({ ...draft, paymentMethod: value })}
               />
               {label}
             </label>
           ))}
         </div>
+        {error ? (
+          <p
+            role="alert"
+            className="whitespace-pre-line rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] font-semibold leading-5 text-red-700"
+          >
+            {error}
+          </p>
+        ) : null}
         <button
           className="h-12 w-full rounded-md bg-accent font-extrabold text-white disabled:opacity-50"
           type="button"
-          disabled={!cart.length || !draft.email || !draft.phone}
+          disabled={pending || !cart.length || !draft.email || !draft.phone || !draft.name}
           onClick={onSubmit}
         >
-          Đặt hàng
+          {pending ? "Đang tạo đơn…" : "Đặt hàng"}
         </button>
       </div>
     </div>

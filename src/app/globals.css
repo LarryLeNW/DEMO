@@ -64,12 +64,9 @@ nextjs-portal {
   display: none !important;
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
+/* Form controls already inherit fonts via Tailwind preflight — do not re-add an
+   unlayered `button { font: inherit }` here: unlayered rules override utility
+   classes (e.g. text-[12px] on buttons) in Tailwind v4. */
 
 ::selection {
   background: rgba(34, 197, 94, 0.22);
@@ -536,4 +533,45 @@ textarea {
   .wp-content .ktk-about .cards {
     grid-template-columns: 1fr;
   }
+}
+
+/* Chromium/Edge render a native "x" flush against the rounded search box –
+   hidden in favor of the custom, centered clear button in SearchBox. */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Autofill của Chromium tô nền trắng lên input tối (login admin) – ép giữ nền tối. */
+.dark-input:-webkit-autofill,
+.dark-input:-webkit-autofill:hover {
+  -webkit-text-fill-color: #f1f5f9;
+  caret-color: #f1f5f9;
+  box-shadow: 0 0 0 1000px #0c1320 inset;
+  transition: background-color 9999s ease-out;
+}
+
+.dark-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #f1f5f9;
+  caret-color: #f1f5f9;
+  box-shadow: 0 0 0 3px rgba(8, 183, 212, 0.14), 0 0 0 1000px #0c1320 inset;
+}
+
+/* Lớp sơn nền cố định cho input tối: Chromium/Edge tô nền autofill bằng style nội bộ
+   (!important, không override được background) – inset shadow luôn-bật phủ lên nó,
+   và -webkit-text-fill-color giữ màu chữ sáng trong mọi trạng thái. */
+.dark-input {
+  box-shadow: 0 0 0 1000px #0c1320 inset;
+  -webkit-text-fill-color: #f1f5f9;
+  caret-color: #f1f5f9;
+}
+
+.dark-input:focus {
+  box-shadow: 0 0 0 3px rgba(8, 183, 212, 0.14), 0 0 0 1000px #0c1320 inset;
+}
+
+/* Edge tự vẽ nút hiện mật khẩu (::-ms-reveal) chồng lên nút custom – ẩn đi. */
+input[type="password"]::-ms-reveal {
+  display: none;
 }

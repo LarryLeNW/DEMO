@@ -14,11 +14,12 @@ import {
   ChevronDown,
   ChevronRight,
   CircleDollarSign,
-  Download,
+  Construction,
   ExternalLink,
   Eye,
   Headphones,
   LayoutDashboard,
+  LoaderCircle,
   LogOut,
   Megaphone,
   Menu,
@@ -30,46 +31,49 @@ import {
   ShieldCheck,
   ShoppingCart,
   SlidersHorizontal,
+  Star,
   Tags,
   Users,
   WalletCards,
   Warehouse,
   X,
+  Trash2,
 } from "lucide-react";
 import { AIHubLogo } from "@/components/aihub-logo";
 import { useAuth } from "@/components/auth/auth-provider";
+import { adminApi, type AdminNotification, type AdminStats } from "@/lib/api/admin";
+import { confirmDanger, promptText } from "./forms/dialogs";
 import { roleLabels } from "@/lib/api/auth";
+import { formatDateTime, timeAgo } from "@/lib/dates";
+import { formatCurrency } from "@/lib/format";
+import { CategoryForm } from "./forms/category-form";
+import { ContentBlockForm } from "./forms/content-block-form";
+import { CustomerDetail } from "./forms/customer-detail";
+import { FundRequestDetail } from "./forms/fund-request-detail";
+import { useDialogBehavior } from "./forms/modal";
+import { OrderDetail } from "./forms/order-detail";
+import { ProductEditor } from "./forms/product-editor";
+import { PromotionForm } from "./forms/promotion-form";
+import { SettingForm } from "./forms/setting-form";
+import { TicketDetail } from "./forms/ticket-detail";
+import {
+  orderToRow,
+  isReleased,
+  runRowAction,
+  sectionForNotification,
+  takeQueuedToast,
+  useAdminModuleRows,
+  useAdminNotifications,
+  useAdminStats,
+  type AdminSection,
+  type DataRow,
+  type ModuleSection,
+} from "./admin-data";
 import styles from "./admin.module.css";
 
-export type AdminSection =
-  | "overview"
-  | "orders"
-  | "products"
-  | "inventory"
-  | "customers"
-  | "transactions"
-  | "deposits"
-  | "categories"
-  | "promotions"
-  | "content"
-  | "support"
-  | "reports"
-  | "settings";
+export type { AdminSection } from "./admin-data";
 
 type ModuleId = AdminSection;
-
-type DataRow = Record<string, string> & { id: string };
-
-type AdminNotification = {
-  id: string;
-  title: string;
-  description: string;
-  time: string;
-  section: ModuleId;
-  icon: LucideIcon;
-  tone: "cyan" | "blue" | "green" | "amber" | "danger";
-  unread: boolean;
-};
 
 type ModuleDefinition = {
   title: string;
@@ -77,10 +81,9 @@ type ModuleDefinition = {
   icon: LucideIcon;
   createLabel?: string;
   columns: { key: string; label: string }[];
-  rows: DataRow[];
 };
 
-const navGroups: { label: string; items: { id: ModuleId; label: string; icon: LucideIcon; badge?: string }[] }[] = [
+const navGroups: { label: string; items: { id: ModuleId; label: string; icon: LucideIcon; badge?: keyof AdminStats["badges"] }[] }[] = [
   {
     label: "Tổng quan",
     items: [{ id: "overview", label: "Bảng điều khiển", icon: LayoutDashboard }],
@@ -88,110 +91,91 @@ const navGroups: { label: string; items: { id: ModuleId; label: string; icon: Lu
   {
     label: "Vận hành",
     items: [
-      { id: "orders", label: "Đơn hàng", icon: ShoppingCart, badge: "18" },
+      { id: "orders", label: "Đơn hàng", icon: ShoppingCart, badge: "orders" },
       { id: "products", label: "Sản phẩm", icon: Package },
-      { id: "inventory", label: "Kho hàng", icon: Warehouse, badge: "5" },
+      { id: "categories", label: "Danh mục", icon: Tags },
+      { id: "inventory", label: "Kho hàng", icon: Warehouse, badge: "inventory" },
     ],
   },
   {
     label: "Tài khoản",
-    items: [
-      { id: "customers", label: "Khách hàng", icon: Users },
-    ],
+    items: [{ id: "customers", label: "Khách hàng", icon: Users }],
   },
   {
     label: "Tài chính",
     items: [
       { id: "transactions", label: "Giao dịch", icon: WalletCards },
-      { id: "deposits", label: "Nạp & rút tiền", icon: CircleDollarSign, badge: "7" },
+      { id: "deposits", label: "Nạp & rút tiền", icon: CircleDollarSign, badge: "deposits" },
     ],
   },
   {
     label: "Tăng trưởng",
     items: [
-      { id: "categories", label: "Danh mục", icon: Tags },
       { id: "promotions", label: "Khuyến mãi", icon: Megaphone },
       { id: "content", label: "Nội dung", icon: SlidersHorizontal },
-    ],
-  },
-  {
-    label: "Hệ thống",
-    items: [
-      { id: "support", label: "Hỗ trợ", icon: Headphones, badge: "9" },
-      { id: "reports", label: "Báo cáo", icon: BarChart3 },
-      { id: "settings", label: "Cài đặt", icon: Settings },
+      { id: "reviews", label: "Đánh giá", icon: Star },
     ],
   },
 ];
 
-const moduleDefinitions: Record<Exclude<ModuleId, "overview">, ModuleDefinition> = {
+/** System modules live in the profile dropdown (topbar) instead of the sidebar. */
+const profileMenuItems: { id: ModuleId; label: string; icon: LucideIcon; badge?: keyof AdminStats["badges"]; hidden?: boolean }[] = [
+  { id: "support", label: "Hỗ trợ", icon: Headphones, badge: "support" },
+  { id: "reports", label: "Báo cáo", icon: BarChart3 },
+  // Ẩn theo yêu cầu (01/09/2026) — bỏ `hidden` để mở lại; /admin/settings vẫn truy cập được qua URL.
+  { id: "settings", label: "Cài đặt", icon: Settings, hidden: true },
+];
+
+/** Column layout per module; rows come from `admin-data.ts` (API). */
+const moduleDefinitions: Record<ModuleSection, ModuleDefinition> = {
   orders: {
     title: "Quản lý đơn hàng",
-    description: "Theo dõi, duyệt và xử lý toàn bộ đơn hàng trên hệ thống.",
+    description: "Theo dõi, xác nhận thanh toán và giao hàng cho toàn bộ đơn.",
     icon: ShoppingCart,
     columns: [
       { key: "id", label: "Mã đơn" },
       { key: "customer", label: "Khách hàng" },
       { key: "product", label: "Sản phẩm" },
       { key: "value", label: "Giá trị" },
+      { key: "method", label: "Thanh toán" },
       { key: "status", label: "Trạng thái" },
       { key: "date", label: "Thời gian" },
-    ],
-    rows: [
-      { id: "#AH10428", customer: "Nguyễn Minh Anh", product: "ChatGPT Plus - 1 tháng", value: "450.000đ", status: "Hoàn tất", date: "10 phút trước" },
-      { id: "#AH10427", customer: "Trần Quốc Huy", product: "Gemini Pro 5TB", value: "89.000đ", status: "Đang xử lý", date: "18 phút trước" },
-      { id: "#AH10426", customer: "Phạm Thu Trang", product: "Canva Pro EDU", value: "25.000đ", status: "Chờ thanh toán", date: "35 phút trước" },
-      { id: "#AH10425", customer: "Lê Hoàng Nam", product: "Proxy dân cư Việt Nam", value: "320.000đ", status: "Hoàn tất", date: "1 giờ trước" },
-      { id: "#AH10424", customer: "Vũ Anh Tuấn", product: "Facebook Clone VIA", value: "170.000đ", status: "Đã hủy", date: "2 giờ trước" },
-      { id: "#AH10423", customer: "Đặng Gia Bảo", product: "VPS Việt Nam NVMe", value: "240.000đ", status: "Hoàn tiền", date: "3 giờ trước" },
     ],
   },
   products: {
     title: "Quản lý sản phẩm",
-    description: "Cập nhật sản phẩm, giá bán, phân loại và trạng thái hiển thị.",
+    description: "Giá gốc / giá bán của gói rẻ nhất, số gói, tồn kho tự động và trạng thái hiển thị.",
     icon: Package,
     createLabel: "Thêm sản phẩm",
     columns: [
       { key: "id", label: "Mã SP" },
       { key: "name", label: "Tên sản phẩm" },
       { key: "category", label: "Danh mục" },
+      { key: "regularPrice", label: "Giá gốc" },
       { key: "price", label: "Giá bán" },
+      { key: "variants", label: "Số gói" },
       { key: "stock", label: "Tồn kho" },
       { key: "status", label: "Trạng thái" },
-    ],
-    rows: [
-      { id: "SP-1024", name: "ChatGPT Plus - tài khoản riêng", category: "Tài khoản", price: "450.000đ", stock: "128", status: "Đang bán" },
-      { id: "SP-1023", name: "Gemini Pro 5TB", category: "Tài khoản", price: "89.000đ", stock: "8", status: "Sắp hết" },
-      { id: "SP-1022", name: "Canva Pro EDU", category: "Phần mềm", price: "25.000đ", stock: "309", status: "Đang bán" },
-      { id: "SP-1021", name: "Proxy dân cư Việt Nam", category: "Proxy & VPN", price: "80.000đ", stock: "0", status: "Hết hàng" },
-      { id: "SP-1020", name: "VPS Việt Nam NVMe", category: "VPS", price: "120.000đ", stock: "42", status: "Đang bán" },
     ],
   },
   inventory: {
     title: "Quản lý kho hàng",
-    description: "Kiểm soát tài nguyên số, số lượng khả dụng và ngưỡng cảnh báo.",
+    description: "Từng SKU: số suất khả dụng, đang giữ, đã giao và lần nhập kho gần nhất.",
     icon: Warehouse,
-    createLabel: "Nhập kho",
     columns: [
       { key: "id", label: "SKU" },
-      { key: "name", label: "Sản phẩm" },
+      { key: "name", label: "Sản phẩm · Gói" },
       { key: "available", label: "Khả dụng" },
       { key: "reserved", label: "Đang giữ" },
+      { key: "delivered", label: "Đã giao" },
       { key: "updated", label: "Cập nhật" },
       { key: "status", label: "Trạng thái" },
-    ],
-    rows: [
-      { id: "SKU-GPT-01", name: "ChatGPT Plus - 1 tháng", available: "128", reserved: "12", updated: "5 phút trước", status: "Ổn định" },
-      { id: "SKU-GEM-05", name: "Gemini Pro 5TB", available: "8", reserved: "4", updated: "12 phút trước", status: "Sắp hết" },
-      { id: "SKU-PROXY-VN", name: "Proxy dân cư Việt Nam", available: "0", reserved: "0", updated: "1 giờ trước", status: "Hết hàng" },
-      { id: "SKU-CANVA-EDU", name: "Canva Pro EDU", available: "309", reserved: "18", updated: "2 giờ trước", status: "Ổn định" },
     ],
   },
   customers: {
     title: "Quản lý khách hàng",
-    description: "Tra cứu tài khoản, lịch sử mua hàng và trạng thái người dùng.",
+    description: "Tài khoản khách, số đơn đã thanh toán và tổng chi tiêu.",
     icon: Users,
-    createLabel: "Thêm khách hàng",
     columns: [
       { key: "id", label: "Mã KH" },
       { key: "name", label: "Khách hàng" },
@@ -200,16 +184,10 @@ const moduleDefinitions: Record<Exclude<ModuleId, "overview">, ModuleDefinition>
       { key: "spend", label: "Tổng chi" },
       { key: "status", label: "Trạng thái" },
     ],
-    rows: [
-      { id: "KH-8821", name: "Nguyễn Minh Anh", email: "minhanh@example.com", orders: "24", spend: "8.240.000đ", status: "Hoạt động" },
-      { id: "KH-8820", name: "Trần Quốc Huy", email: "quochuy@example.com", orders: "11", spend: "2.980.000đ", status: "Hoạt động" },
-      { id: "KH-8819", name: "Phạm Thu Trang", email: "thutrang@example.com", orders: "3", spend: "425.000đ", status: "Mới" },
-      { id: "KH-8818", name: "Lê Hoàng Nam", email: "hoangnam@example.com", orders: "18", spend: "6.150.000đ", status: "Tạm khóa" },
-    ],
   },
   transactions: {
     title: "Quản lý giao dịch",
-    description: "Đối soát dòng tiền, thanh toán đơn hàng và hoàn tiền.",
+    description: "Sổ cái ví AIHUB: thanh toán, nạp, rút, hoàn tiền và điều chỉnh.",
     icon: WalletCards,
     columns: [
       { key: "id", label: "Mã GD" },
@@ -218,17 +196,12 @@ const moduleDefinitions: Record<Exclude<ModuleId, "overview">, ModuleDefinition>
       { key: "value", label: "Số tiền" },
       { key: "method", label: "Phương thức" },
       { key: "status", label: "Trạng thái" },
-    ],
-    rows: [
-      { id: "GD-722981", type: "Thanh toán", account: "Nguyễn Minh Anh", value: "+450.000đ", method: "Số dư AIHUB", status: "Thành công" },
-      { id: "GD-722980", type: "Nạp tiền", account: "Trần Quốc Huy", value: "+1.000.000đ", method: "Chuyển khoản", status: "Thành công" },
-      { id: "GD-722979", type: "Hoàn tiền", account: "Đặng Gia Bảo", value: "-240.000đ", method: "Số dư AIHUB", status: "Đang xử lý" },
-      { id: "GD-722978", type: "Thanh toán", account: "Phạm Thu Trang", value: "+25.000đ", method: "Số dư AIHUB", status: "Thành công" },
+      { key: "date", label: "Thời gian" },
     ],
   },
   deposits: {
     title: "Nạp & rút tiền",
-    description: "Phê duyệt yêu cầu nạp, rút và kiểm tra chênh lệch số dư.",
+    description: "Duyệt yêu cầu nạp/rút; duyệt xong số dư ví được cập nhật ngay.",
     icon: CircleDollarSign,
     columns: [
       { key: "id", label: "Yêu cầu" },
@@ -238,36 +211,24 @@ const moduleDefinitions: Record<Exclude<ModuleId, "overview">, ModuleDefinition>
       { key: "created", label: "Thời gian" },
       { key: "status", label: "Trạng thái" },
     ],
-    rows: [
-      { id: "YC-3912", account: "@minhanh", type: "Nạp tiền", value: "2.000.000đ", created: "8 phút trước", status: "Chờ duyệt" },
-      { id: "YC-3911", account: "@hoangnam", type: "Rút tiền", value: "800.000đ", created: "22 phút trước", status: "Đang xử lý" },
-      { id: "YC-3910", account: "@thutrang", type: "Rút tiền", value: "300.000đ", created: "45 phút trước", status: "Hoàn tất" },
-      { id: "YC-3909", account: "@quochuy", type: "Nạp tiền", value: "1.000.000đ", created: "1 giờ trước", status: "Hoàn tất" },
-    ],
   },
   categories: {
     title: "Quản lý danh mục",
-    description: "Tổ chức nhóm sản phẩm và cấu hình thứ tự hiển thị cửa hàng.",
+    description: "Cây danh mục, số sản phẩm và thứ tự hiển thị trên cửa hàng.",
     icon: Tags,
     createLabel: "Thêm danh mục",
     columns: [
       { key: "id", label: "Mã" },
       { key: "name", label: "Danh mục" },
+      { key: "path", label: "Đường dẫn" },
       { key: "products", label: "Sản phẩm" },
-      { key: "revenue", label: "Doanh thu tháng" },
       { key: "order", label: "Thứ tự" },
       { key: "status", label: "Trạng thái" },
-    ],
-    rows: [
-      { id: "DM-01", name: "Tài khoản", products: "68", revenue: "124.500.000đ", order: "01", status: "Hiển thị" },
-      { id: "DM-02", name: "Phần mềm", products: "42", revenue: "72.800.000đ", order: "02", status: "Hiển thị" },
-      { id: "DM-03", name: "Proxy & VPN", products: "21", revenue: "38.200.000đ", order: "03", status: "Hiển thị" },
-      { id: "DM-04", name: "VPS", products: "17", revenue: "29.600.000đ", order: "04", status: "Ẩn" },
     ],
   },
   promotions: {
     title: "Quản lý khuyến mãi",
-    description: "Tạo mã giảm giá, giới hạn sử dụng và lịch chạy chiến dịch.",
+    description: "Mã giảm giá, lượt dùng và lịch chạy chiến dịch.",
     icon: Megaphone,
     createLabel: "Tạo khuyến mãi",
     columns: [
@@ -278,16 +239,10 @@ const moduleDefinitions: Record<Exclude<ModuleId, "overview">, ModuleDefinition>
       { key: "end", label: "Kết thúc" },
       { key: "status", label: "Trạng thái" },
     ],
-    rows: [
-      { id: "Khách hàng mới", code: "AIHUB10", discount: "10%", uses: "284 / 500", end: "31/08/2026", status: "Đang chạy" },
-      { id: "Cuối tuần vui vẻ", code: "WEEKEND50", discount: "50.000đ", uses: "92 / 200", end: "18/08/2026", status: "Đang chạy" },
-      { id: "Sinh nhật AIHUB", code: "AIHUB15", discount: "15%", uses: "0 / 300", end: "25/08/2026", status: "Đã lên lịch" },
-      { id: "Mùa hè AI", code: "SUMMERAI", discount: "15%", uses: "500 / 500", end: "31/07/2026", status: "Đã kết thúc" },
-    ],
   },
   content: {
     title: "Quản lý nội dung",
-    description: "Điều chỉnh banner, thông báo và nội dung hỗ trợ trên cửa hàng.",
+    description: "Banner, thông báo hệ thống và bài trợ giúp trên cửa hàng.",
     icon: SlidersHorizontal,
     createLabel: "Tạo nội dung",
     columns: [
@@ -298,15 +253,10 @@ const moduleDefinitions: Record<Exclude<ModuleId, "overview">, ModuleDefinition>
       { key: "owner", label: "Người sửa" },
       { key: "status", label: "Trạng thái" },
     ],
-    rows: [
-      { id: "ND-128", title: "Banner AIHUB tháng 8", channel: "Trang chủ", updated: "15/08/2026", owner: "Admin", status: "Đang hiển thị" },
-      { id: "ND-127", title: "Thông báo bảo trì thanh toán", channel: "Toàn hệ thống", updated: "14/08/2026", owner: "Minh Anh", status: "Bản nháp" },
-      { id: "ND-126", title: "Hướng dẫn quỹ bảo hiểm 72h", channel: "Trung tâm trợ giúp", updated: "12/08/2026", owner: "Thu Trang", status: "Đang hiển thị" },
-    ],
   },
   support: {
     title: "Trung tâm hỗ trợ",
-    description: "Tiếp nhận khiếu nại, yêu cầu hỗ trợ và tranh chấp giao dịch.",
+    description: "Phiếu hỗ trợ, khiếu nại và tranh chấp giao dịch của khách.",
     icon: Headphones,
     columns: [
       { key: "id", label: "Mã phiếu" },
@@ -316,16 +266,24 @@ const moduleDefinitions: Record<Exclude<ModuleId, "overview">, ModuleDefinition>
       { key: "updated", label: "Cập nhật" },
       { key: "status", label: "Trạng thái" },
     ],
-    rows: [
-      { id: "TK-9201", customer: "Nguyễn Minh Anh", subject: "Chưa nhận được tài khoản", priority: "Cao", updated: "5 phút trước", status: "Đang xử lý" },
-      { id: "TK-9200", customer: "Trần Quốc Huy", subject: "Yêu cầu đổi sản phẩm", priority: "Trung bình", updated: "18 phút trước", status: "Mới" },
-      { id: "TK-9199", customer: "Phạm Thu Trang", subject: "Không đăng nhập được", priority: "Cao", updated: "42 phút trước", status: "Chờ phản hồi" },
-      { id: "TK-9198", customer: "Lê Hoàng Nam", subject: "Hỏi về hoàn tiền", priority: "Thấp", updated: "1 giờ trước", status: "Đã đóng" },
+  },
+  reviews: {
+    title: "Đánh giá sản phẩm",
+    description: "Kiểm duyệt đánh giá khách gửi; duyệt xong điểm sao của sản phẩm được tính lại.",
+    icon: Star,
+    columns: [
+      { key: "id", label: "Mã" },
+      { key: "product", label: "Sản phẩm" },
+      { key: "author", label: "Người viết" },
+      { key: "rating", label: "Sao" },
+      { key: "content", label: "Nội dung" },
+      { key: "created", label: "Gửi lúc" },
+      { key: "status", label: "Trạng thái" },
     ],
   },
   reports: {
     title: "Báo cáo & phân tích",
-    description: "Tổng hợp chỉ số kinh doanh, vận hành và chất lượng dịch vụ.",
+    description: "Tổng hợp doanh thu theo sản phẩm/danh mục, tỷ lệ hoàn tiền, khách hàng.",
     icon: BarChart3,
     createLabel: "Tạo báo cáo",
     columns: [
@@ -336,92 +294,42 @@ const moduleDefinitions: Record<Exclude<ModuleId, "overview">, ModuleDefinition>
       { key: "format", label: "Định dạng" },
       { key: "status", label: "Trạng thái" },
     ],
-    rows: [
-      { id: "Doanh thu theo sản phẩm", period: "Tháng 08/2026", owner: "Admin", updated: "Hôm nay", format: "Excel", status: "Sẵn sàng" },
-      { id: "Doanh thu theo danh mục", period: "Quý 3/2026", owner: "Minh Anh", updated: "Hôm qua", format: "PDF", status: "Sẵn sàng" },
-      { id: "Tỷ lệ hoàn tiền", period: "30 ngày gần nhất", owner: "Hệ thống", updated: "2 giờ trước", format: "Dashboard", status: "Đang tạo" },
-    ],
   },
   settings: {
     title: "Cài đặt hệ thống",
-    description: "Quản lý cấu hình cửa hàng, phân quyền và các tích hợp.",
+    description: "Cấu hình cửa hàng, thanh toán, thông báo và tích hợp (lưu trong bảng settings).",
     icon: Settings,
     columns: [
-      { key: "id", label: "Nhóm cài đặt" },
+      { key: "id", label: "Khóa" },
       { key: "description", label: "Mô tả" },
-      { key: "owner", label: "Phụ trách" },
+      { key: "group", label: "Nhóm" },
+      { key: "value", label: "Giá trị" },
       { key: "updated", label: "Cập nhật" },
-      { key: "status", label: "Trạng thái" },
-    ],
-    rows: [
-      { id: "Thông tin cửa hàng", description: "Tên, logo, tên miền và thông tin liên hệ", owner: "Quản trị viên", updated: "12/08/2026", status: "Đã cấu hình" },
-      { id: "Thanh toán", description: "Ngân hàng, đối soát và giới hạn giao dịch", owner: "Tài chính", updated: "10/08/2026", status: "Đã cấu hình" },
-      { id: "Vai trò & phân quyền", description: "Quyền truy cập của nhân sự quản trị", owner: "Quản trị viên", updated: "08/08/2026", status: "Cần kiểm tra" },
-      { id: "Thông báo", description: "Email, trình duyệt và cảnh báo vận hành", owner: "Vận hành", updated: "01/08/2026", status: "Đã cấu hình" },
-      { id: "API & tích hợp", description: "Webhook, API token và dịch vụ bên thứ ba", owner: "Kỹ thuật", updated: "28/07/2026", status: "Hoạt động" },
+      { key: "status", label: "Phạm vi" },
     ],
   },
 };
 
-const initialNotifications: AdminNotification[] = [
-  {
-    id: "notification-order",
-    title: "Có đơn hàng mới #AH10429",
-    description: "Đơn ChatGPT Plus trị giá 450.000đ đang chờ xử lý.",
-    time: "2 phút trước",
-    section: "orders",
-    icon: ShoppingCart,
-    tone: "cyan",
-    unread: true,
-  },
-  {
-    id: "notification-stock",
-    title: "Gemini Pro 5TB sắp hết hàng",
-    description: "Kho hiện chỉ còn 8 sản phẩm khả dụng.",
-    time: "12 phút trước",
-    section: "inventory",
-    icon: AlertTriangle,
-    tone: "amber",
-    unread: true,
-  },
-  {
-    id: "notification-customer",
-    title: "Khách hàng mới đăng ký",
-    description: "Phạm Thu Trang vừa tạo tài khoản và đặt đơn đầu tiên.",
-    time: "22 phút trước",
-    section: "customers",
-    icon: Users,
-    tone: "blue",
-    unread: true,
-  },
-  {
-    id: "notification-refund",
-    title: "Yêu cầu hoàn tiền đã được duyệt",
-    description: "Giao dịch GD-722979 đang được hoàn về số dư khách hàng.",
-    time: "1 giờ trước",
-    section: "transactions",
-    icon: RefreshCw,
-    tone: "green",
-    unread: false,
-  },
-  {
-    id: "notification-support",
-    title: "Phiếu hỗ trợ ưu tiên cao",
-    description: "Khách hàng báo chưa nhận được tài khoản sau thanh toán.",
-    time: "2 giờ trước",
-    section: "support",
-    icon: Headphones,
-    tone: "danger",
-    unread: false,
-  },
-];
+const REPORT_KINDS: Record<string, string> = {
+  revenue_by_product: "Doanh thu theo sản phẩm",
+  revenue_by_category: "Doanh thu theo danh mục",
+  refund_rate: "Tỷ lệ hoàn tiền",
+  customers: "Khách hàng mới & chi tiêu",
+};
 
-const notificationStorageKey = "aihub-admin-read-notifications-v1";
+const notificationIcons: Record<string, LucideIcon> = {
+  orders: ShoppingCart,
+  inventory: AlertTriangle,
+  deposits: CircleDollarSign,
+  support: Headphones,
+  customers: Users,
+  transactions: RefreshCw,
+};
 
 const statusTone = (status: string) => {
-  if (/hoàn tất|thành công|đang bán|ổn định|hoạt động|đã xác minh|hiển thị|đang chạy|đang hiển thị|sẵn sàng|đã cấu hình/i.test(status)) return "success";
-  if (/đang xử lý|chờ|sắp hết|mới|đã lên lịch|đang tạo|cần kiểm tra/i.test(status)) return "warning";
-  if (/hủy|hết hàng|tạm khóa|hoàn tiền|đã kết thúc|đã đóng|ẩn/i.test(status)) return "danger";
+  if (/hoàn tất|thành công|đang bán|ổn định|hoạt động|hiển thị|đang chạy|sẵn sàng|công khai|đã giải quyết|đã duyệt/i.test(status)) return "success";
+  if (/đang xử lý|chờ|sắp hết|mới|đã lên lịch|đang tạo|bản nháp|tạm dừng|nháp|giao tay|nội bộ/i.test(status)) return "warning";
+  if (/hủy|hết hàng|tạm khóa|hoàn tiền|đã kết thúc|đã đóng|ẩn|từ chối|thất bại|lỗi|lưu trữ/i.test(status)) return "danger";
   return "neutral";
 };
 
@@ -429,7 +337,21 @@ function StatusBadge({ children }: { children: string }) {
   return <span className={`${styles.status} ${styles[statusTone(children)]}`}>{children}</span>;
 }
 
-function AdminSidebar({ active, open, onSelect, onClose, onLogout }: { active: ModuleId; open: boolean; onSelect: (id: ModuleId) => void; onClose: () => void; onLogout: () => void }) {
+function AdminSidebar({
+  active,
+  open,
+  badges,
+  onSelect,
+  onClose,
+  onLogout,
+}: {
+  active: ModuleId;
+  open: boolean;
+  badges: AdminStats["badges"] | null;
+  onSelect: (id: ModuleId) => void;
+  onClose: () => void;
+  onLogout: () => void;
+}) {
   return (
     <>
       <button className={`${styles.backdrop} ${open ? styles.backdropOpen : ""}`} onClick={onClose} aria-label="Đóng menu" />
@@ -444,16 +366,21 @@ function AdminSidebar({ active, open, onSelect, onClose, onLogout }: { active: M
               <p>{group.label}</p>
               {group.items.map((item) => {
                 const Icon = item.icon;
+                const released = isReleased(item.id);
+                const badge = released && item.badge && badges ? badges[item.badge] : 0;
                 return (
                   <button
                     key={item.id}
-                    className={active === item.id ? styles.navActive : ""}
+                    className={`${active === item.id ? styles.navActive : ""} ${released ? "" : styles.navPending}`}
                     onClick={() => { onSelect(item.id); onClose(); }}
+                    disabled={!released}
+                    title={released ? undefined : "Phân hệ này sẽ được bàn giao ở đợt tiếp theo"}
                     aria-current={active === item.id ? "page" : undefined}
                   >
                     <Icon size={18} />
                     <span>{item.label}</span>
-                    {item.badge && <em>{item.badge}</em>}
+                    {badge > 0 && <em>{badge > 99 ? "99+" : badge}</em>}
+                    {!released && <em className={styles.navSoon}>Đang hoàn thiện</em>}
                   </button>
                 );
               })}
@@ -461,42 +388,108 @@ function AdminSidebar({ active, open, onSelect, onClose, onLogout }: { active: M
           ))}
         </nav>
         <div className={styles.sidebarFooter}>
-          <AIHubLogo href="/admin" size="sm" admin className={styles.footerLogo} />
-          <button type="button" className={styles.logoutButton} aria-label="Đăng xuất" title="Đăng xuất" onClick={onLogout}><LogOut size={17} /></button>
+          <button type="button" className={styles.logoutButton} onClick={onLogout}><LogOut size={17} /> Đăng xuất</button>
         </div>
       </aside>
     </>
   );
 }
 
-const overviewOrders = moduleDefinitions.orders.rows.slice(0, 5);
+function changeLabel(percent: number | null) {
+  if (percent === null) return { text: "Hôm qua chưa có dữ liệu", positive: true };
+  const sign = percent > 0 ? "+" : "";
+  return { text: `${sign}${percent.toLocaleString("vi-VN")}%`, positive: percent >= 0 };
+}
 
-function Overview({ onNavigate, notify }: { onNavigate: (id: ModuleId) => void; notify: (message: string) => void }) {
-  const [period, setPeriod] = useState("7 ngày");
-  const chart = [42, 58, 47, 72, 65, 83, 76, 92, 68, 86, 80, 96];
-  const stats = [
-    { label: "Doanh thu hôm nay", value: "18.420.000đ", change: "+12,5%", icon: CircleDollarSign, tone: "cyan", positive: true },
-    { label: "Đơn hàng mới", value: "148", change: "+8,2%", icon: ShoppingCart, tone: "blue", positive: true },
-    { label: "Khách hàng mới", value: "36", change: "+5,1%", icon: Users, tone: "green", positive: true },
-    { label: "Tỷ lệ hoàn tiền", value: "1,8%", change: "-0,4%", icon: RefreshCw, tone: "amber", positive: false },
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Chào buổi sáng";
+  if (hour < 18) return "Chào buổi chiều";
+  return "Chào buổi tối";
+}
+
+/** Sections whose rows can be deleted from the table (soft delete server-side). */
+const DELETABLE = new Set<ModuleId>(["products", "categories", "promotions", "content"]);
+
+/** Modules not handed over in this release (derived from the nav + profile menu so they never drift apart). */
+const pendingModules = [...navGroups.flatMap((group) => group.items), ...profileMenuItems].filter((item) => !isReleased(item.id));
+
+function PendingSection({ label, onBack }: { label: string; onBack: () => void }) {
+  return (
+    <section className={styles.pendingSection} aria-label={`${label} đang hoàn thiện`}>
+      <span className={styles.pendingIcon}><Construction size={26} /></span>
+      <h1>Đang hoàn thiện</h1>
+      <p>Phân hệ <strong>{label}</strong> chưa nằm trong đợt bàn giao này và sẽ được mở ở đợt tiếp theo.</p>
+      <button className={styles.primaryButton} onClick={onBack}><LayoutDashboard size={17} /> Về bảng điều khiển</button>
+    </section>
+  );
+}
+
+function Overview({
+  stats,
+  statsError,
+  userName,
+  onNavigate,
+  onRefresh,
+  onOpenProduct,
+}: {
+  stats: AdminStats | null;
+  statsError: string | null;
+  userName: string;
+  onNavigate: (id: ModuleId) => void;
+  onRefresh: () => void;
+  onOpenProduct: (productId: number) => void;
+}) {
+  const today = new Date();
+  const dateLabel = new Intl.DateTimeFormat("vi-VN", { day: "numeric", month: "long", year: "numeric" }).format(today);
+
+  const statCards = stats
+    ? [
+        { label: "Doanh thu hôm nay", value: formatCurrency(stats.today.revenue), change: changeLabel(stats.today.revenueChangePercent), icon: CircleDollarSign, tone: "cyan" },
+        { label: "Đơn thanh toán hôm nay", value: String(stats.today.orders), change: changeLabel(stats.today.ordersChangePercent), icon: ShoppingCart, tone: "blue" },
+        { label: "Khách hàng mới", value: String(stats.today.newCustomers), change: changeLabel(stats.today.newCustomersChangePercent), icon: Users, tone: "green" },
+        { label: "Tỷ lệ hoàn tiền (30 ngày)", value: `${stats.refundRatePercent.toLocaleString("vi-VN")}%`, change: { text: "trên tổng đơn 30 ngày", positive: stats.refundRatePercent < 5 }, icon: RefreshCw, tone: "amber" },
+      ]
+    : [];
+
+  const chartMax = Math.max(1, ...(stats?.revenueByDay.map((day) => day.revenue) ?? [1]));
+  const periodRevenue = stats?.revenueByDay.reduce((sum, day) => sum + day.revenue, 0) ?? 0;
+  const periodOrders = stats?.revenueByDay.reduce((sum, day) => sum + day.orders, 0) ?? 0;
+
+  const quickActions = [
+    { label: "Thêm sản phẩm", detail: "Nhập kho, giá bán, biến thể", icon: Plus, id: "products" as ModuleId },
+    { label: "Quản lý danh mục", detail: "Cây danh mục, thứ tự, icon menu", icon: Tags, id: "categories" as ModuleId },
+    { label: "Hỗ trợ khách", detail: stats ? `${stats.badges.support} phiếu đang mở` : "…", icon: Headphones, id: "support" as ModuleId },
+    { label: "Cài đặt cửa hàng", detail: "Thông tin liên hệ, thanh toán, trang chủ", icon: Settings, id: "settings" as ModuleId },
   ];
+
+  const activityIcon: Record<AdminStats["recentActivity"][number]["type"], { icon: LucideIcon; tone: string }> = {
+    order: { icon: ShoppingCart, tone: "cyan" },
+    fund_request: { icon: CircleDollarSign, tone: "amber" },
+    ticket: { icon: Headphones, tone: "danger" },
+    customer: { icon: Users, tone: "blue" },
+  };
 
   return (
     <div className={styles.overview}>
       <section className={styles.hero}>
         <div>
-          <span className={styles.eyebrow}><ShieldCheck size={15} /> Hệ thống đang hoạt động ổn định</span>
-          <h1>Chào buổi sáng, Quản trị viên</h1>
-          <p>Đây là tình hình hoạt động của AIHUB hôm nay, 16 tháng 8 năm 2026.</p>
+          <span className={styles.eyebrow}>
+            <ShieldCheck size={15} /> {statsError ? "Không kết nối được máy chủ thống kê" : stats ? `Số liệu cập nhật ${timeAgo(stats.generatedAt)}` : "Đang tải số liệu…"}
+          </span>
+          <h1>{greeting()}, {userName}</h1>
+          <p>Đây là tình hình hoạt động của AIHUB hôm nay, {dateLabel}.</p>
         </div>
         <div className={styles.heroActions}>
-          <button className={styles.secondaryButton} onClick={() => notify("Dữ liệu dashboard đã được làm mới.")}><RefreshCw size={17} /> Làm mới</button>
+          <button className={styles.secondaryButton} onClick={onRefresh}><RefreshCw size={17} /> Làm mới</button>
           <button className={styles.primaryButton} onClick={() => onNavigate("products")}><Plus size={17} /> Thêm sản phẩm</button>
         </div>
       </section>
 
+      {statsError ? <p role="alert" className={styles.inlineAlert}>{statsError}</p> : null}
+
       <section className={styles.statsGrid} aria-label="Chỉ số kinh doanh">
-        {stats.map((stat) => {
+        {statCards.length ? statCards.map((stat) => {
           const Icon = stat.icon;
           return (
             <article className={styles.statCard} key={stat.label}>
@@ -504,43 +497,46 @@ function Overview({ onNavigate, notify }: { onNavigate: (id: ModuleId) => void; 
               <div className={styles.statMeta}>
                 <span>{stat.label}</span>
                 <strong>{stat.value}</strong>
-                <small className={stat.positive ? styles.up : styles.down}>
-                  {stat.positive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}{stat.change}
-                  <i> so với hôm qua</i>
+                <small className={stat.change.positive ? styles.up : styles.down}>
+                  {stat.change.positive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}{stat.change.text}
+                  {stat.change.text.endsWith("%") ? <i> so với hôm qua</i> : null}
                 </small>
               </div>
             </article>
           );
-        })}
+        }) : Array.from({ length: 4 }).map((_, index) => (
+          <article className={styles.statCard} key={index}>
+            <div className={`${styles.statIcon} ${styles.blue}`}><LoaderCircle size={20} className="animate-spin" /></div>
+            <div className={styles.statMeta}><span>Đang tải…</span><strong>—</strong></div>
+          </article>
+        ))}
       </section>
 
       <section className={styles.dashboardGrid}>
         <article className={`${styles.panel} ${styles.revenuePanel}`}>
           <div className={styles.panelHeader}>
-            <div><h2>Doanh thu</h2><p>Tổng doanh thu theo khoảng thời gian</p></div>
-            <div className={styles.segmented}>
-              {["7 ngày", "30 ngày", "12 tháng"].map((item) => <button key={item} className={period === item ? styles.segmentActive : ""} onClick={() => setPeriod(item)}>{item}</button>)}
-            </div>
+            <div><h2>Doanh thu</h2><p>12 ngày gần nhất (đơn đã thanh toán)</p></div>
           </div>
-          <div className={styles.revenueSummary}><strong>124.680.000đ</strong><span><ArrowUpRight size={14} /> 16,8%</span></div>
-          <div className={styles.chart} aria-label={`Biểu đồ doanh thu ${period}`}>
+          <div className={styles.revenueSummary}><strong>{formatCurrency(periodRevenue)}</strong><span>{periodOrders} đơn</span></div>
+          <div className={styles.chart} aria-label="Biểu đồ doanh thu 12 ngày">
             <div className={styles.chartLines}><i /><i /><i /><i /></div>
             <div className={styles.bars}>
-              {chart.map((value, index) => <span key={index} style={{ height: `${value}%` }}><i>{value}</i></span>)}
+              {(stats?.revenueByDay ?? []).map((day) => (
+                <span key={day.date} style={{ height: `${Math.max(2, Math.round((day.revenue / chartMax) * 100))}%` }} title={`${day.date}: ${formatCurrency(day.revenue)}`}>
+                  <i>{formatCurrency(day.revenue)}</i>
+                </span>
+              ))}
             </div>
           </div>
-          <div className={styles.chartLabels}><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span></div>
+          <div className={styles.chartLabels}>
+            {(stats?.revenueByDay ?? []).map((day) => <span key={day.date}>{day.date.slice(8, 10)}/{day.date.slice(5, 7)}</span>)}
+          </div>
         </article>
 
         <article className={`${styles.panel} ${styles.quickPanel}`}>
           <div className={styles.panelHeader}><div><h2>Thao tác nhanh</h2><p>Công việc thường dùng</p></div></div>
           <div className={styles.quickGrid}>
-            {[
-              { label: "Thêm sản phẩm", detail: "Tạo mặt hàng mới", icon: Plus, id: "products" as ModuleId },
-              { label: "Duyệt đơn hàng", detail: "18 đơn đang chờ", icon: CheckCircle2, id: "orders" as ModuleId },
-              { label: "Kiểm tra kho", detail: "5 cảnh báo mới", icon: Warehouse, id: "inventory" as ModuleId },
-              { label: "Hỗ trợ khách", detail: "9 phiếu chưa xử lý", icon: Headphones, id: "support" as ModuleId },
-            ].map((action) => {
+            {quickActions.map((action) => {
               const Icon = action.icon;
               return <button key={action.label} onClick={() => onNavigate(action.id)}><span><Icon size={18} /></span><div><strong>{action.label}</strong><small>{action.detail}</small></div><ChevronRight size={16} /></button>;
             })}
@@ -551,34 +547,40 @@ function Overview({ onNavigate, notify }: { onNavigate: (id: ModuleId) => void; 
       <section className={styles.lowerGrid}>
         <article className={`${styles.panel} ${styles.ordersPanel}`}>
           <div className={styles.panelHeader}>
-            <div><h2>Đơn hàng gần đây</h2><p>Cập nhật theo thời gian thực</p></div>
-            <button className={styles.textButton} onClick={() => onNavigate("orders")}>Xem tất cả <ChevronRight size={15} /></button>
+            <div><h2>Phân hệ đang hoàn thiện</h2><p>Sẽ được bàn giao ở đợt tiếp theo</p></div>
+            <span className={styles.pendingTag}><Construction size={13} /> Đang hoàn thiện</span>
           </div>
-          <div className={styles.tableScroll}>
-            <table className={styles.dataTable}>
-              <thead><tr><th>Mã đơn</th><th>Khách hàng</th><th>Giá trị</th><th>Trạng thái</th><th>Thời gian</th></tr></thead>
-              <tbody>{overviewOrders.map((row) => <tr key={row.id}><td data-label="Mã đơn"><strong>{row.id}</strong></td><td data-label="Khách hàng">{row.customer}<small>{row.product}</small></td><td data-label="Giá trị">{row.value}</td><td data-label="Trạng thái"><StatusBadge>{row.status}</StatusBadge></td><td data-label="Thời gian">{row.date}</td></tr>)}</tbody>
-            </table>
+          <div className={styles.pendingModules}>
+            {pendingModules.map((item) => {
+              const Icon = item.icon;
+              return <div key={item.id}><span><Icon size={16} /></span><strong>{item.label}</strong></div>;
+            })}
           </div>
         </article>
 
         <div className={styles.sideStack}>
           <article className={styles.panel}>
-            <div className={styles.panelHeader}><div><h2>Cảnh báo kho</h2><p>Sản phẩm cần bổ sung</p></div><button className={styles.iconButton} onClick={() => onNavigate("inventory")} aria-label="Xem kho"><ChevronRight size={17} /></button></div>
+            <div className={styles.panelHeader}><div><h2>Cảnh báo kho</h2><p>SKU giao tự động dưới ngưỡng</p></div><button className={styles.iconButton} onClick={() => onNavigate("products")} aria-label="Xem sản phẩm"><ChevronRight size={17} /></button></div>
             <div className={styles.alertList}>
-              {[
-                { name: "Proxy dân cư Việt Nam", stock: "Đã hết hàng", tone: "danger" },
-                { name: "Gemini Pro 5TB", stock: "Còn 8 sản phẩm", tone: "warning" },
-                { name: "ChatGPT Team", stock: "Còn 12 sản phẩm", tone: "warning" },
-              ].map((item) => <button key={item.name} onClick={() => onNavigate("inventory")}><span className={styles[item.tone]}><AlertTriangle size={16} /></span><div><strong>{item.name}</strong><small>{item.stock}</small></div><ChevronRight size={15} /></button>)}
+              {stats?.lowStock.length ? stats.lowStock.map((item) => (
+                <button key={item.variantId} onClick={() => onOpenProduct(item.productId)}>
+                  <span className={styles[item.available === 0 ? "danger" : "warning"]}><AlertTriangle size={16} /></span>
+                  <div><strong>{item.productName}</strong><small>{item.sku} · {item.available === 0 ? "Đã hết hàng" : `Còn ${item.available} / ngưỡng ${item.threshold}`}</small></div>
+                  <ChevronRight size={15} />
+                </button>
+              )) : <p className={styles.emptyNote}>{stats ? "Không có SKU nào dưới ngưỡng." : "Đang tải…"}</p>}
             </div>
           </article>
           <article className={styles.panel}>
-            <div className={styles.panelHeader}><div><h2>Hoạt động gần đây</h2><p>Thay đổi trong hệ thống</p></div></div>
+            <div className={styles.panelHeader}><div><h2>Hoạt động gần đây</h2><p>Đơn, nạp/rút, hỗ trợ, khách mới</p></div></div>
             <div className={styles.activityList}>
-              <div><span className={styles.cyan}><Package size={15} /></span><p><strong>Admin</strong> cập nhật giá Gemini Pro<small>8 phút trước</small></p></div>
-              <div><span className={styles.green}><CheckCircle2 size={15} /></span><p>Đơn <strong>#AH10428</strong> đã hoàn tất<small>10 phút trước</small></p></div>
-              <div><span className={styles.blue}><Users size={15} /></span><p>Khách hàng <strong>Phạm Thu Trang</strong> vừa đăng ký<small>22 phút trước</small></p></div>
+              {stats?.recentActivity.length ? stats.recentActivity.map((item, index) => {
+                const meta = activityIcon[item.type];
+                const Icon = meta.icon;
+                return (
+                  <div key={`${item.type}-${index}`}><span className={styles[meta.tone]}><Icon size={15} /></span><p><strong>{item.title}</strong> {item.detail}<small>{timeAgo(item.at)}</small></p></div>
+                );
+              }) : <p className={styles.emptyNote}>{stats ? "Chưa có hoạt động nào." : "Đang tải…"}</p>}
             </div>
           </article>
         </div>
@@ -587,34 +589,32 @@ function Overview({ onNavigate, notify }: { onNavigate: (id: ModuleId) => void; 
   );
 }
 
-function escapeCsvCell(value: string) {
-  const safeValue = /^[=+\-@]/.test(value) ? `'${value}` : value;
-  return `"${safeValue.replaceAll('"', '""')}"`;
-}
-
-function ManagementView({ definition, query, onQueryChange, onCreate, onInspect, onQuickUpdate, notify }: {
+function ManagementView({ definition, rows: allRows, loading, query, onQueryChange, onCreate, onInspect, onQuickUpdate, onDelete }: {
   definition: ModuleDefinition;
+  rows: DataRow[];
+  loading: boolean;
   query: string;
   onQueryChange: (value: string) => void;
   onCreate: () => void;
   onInspect: (row: DataRow) => void;
   onQuickUpdate: (row: DataRow) => void;
-  notify: (message: string) => void;
+  onDelete?: (row: DataRow) => void;
 }) {
   const [statusFilter, setStatusFilter] = useState("Tất cả trạng thái");
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [page, setPage] = useState(1);
   const statusMenuRef = useRef<HTMLDivElement>(null);
-  const pageSize = 5;
-  const statuses = useMemo(() => ["Tất cả trạng thái", ...Array.from(new Set(definition.rows.map((row) => row.status)))], [definition.rows]);
-  const filteredRows = useMemo(() => definition.rows.filter((row) => {
-    const matchesQuery = Object.values(row).some((value) => value.toLowerCase().includes(query.toLowerCase()));
+  const pageSize = 10;
+  const statuses = useMemo(() => ["Tất cả trạng thái", ...Array.from(new Set(allRows.map((row) => row.status)))], [allRows]);
+  const filteredRows = useMemo(() => allRows.filter((row) => {
+    const matchesQuery = Object.entries(row).some(([key, value]) => !key.startsWith("_") && value.toLowerCase().includes(query.toLowerCase()));
     const matchesStatus = statusFilter === "Tất cả trạng thái" || row.status === statusFilter;
     return matchesQuery && matchesStatus;
-  }), [definition.rows, query, statusFilter]);
+  }), [allRows, query, statusFilter]);
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const rows = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const actionable = allRows.filter((row) => row._action).length;
 
   useEffect(() => {
     const closeMenu = (event: PointerEvent) => {
@@ -631,19 +631,6 @@ function ManagementView({ definition, query, onQueryChange, onCreate, onInspect,
     };
   }, []);
 
-  const exportCsv = () => {
-    const header = definition.columns.map((column) => escapeCsvCell(column.label)).join(",");
-    const body = filteredRows.map((row) => definition.columns.map((column) => escapeCsvCell(row[column.key] ?? "")).join(",")).join("\n");
-    const blob = new Blob([`\uFEFF${header}\n${body}`], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${definition.title.toLowerCase().replaceAll(" ", "-")}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-    notify("Đã xuất dữ liệu CSV thành công.");
-  };
-
   const Icon = definition.icon;
   return (
     <div className={styles.management}>
@@ -651,16 +638,15 @@ function ManagementView({ definition, query, onQueryChange, onCreate, onInspect,
         <div className={styles.titleIcon}><Icon size={23} /></div>
         <div><h1>{definition.title}</h1><p>{definition.description}</p></div>
         <div className={styles.pageActions}>
-          <button className={styles.secondaryButton} onClick={exportCsv}><Download size={17} /> Xuất dữ liệu</button>
           {definition.createLabel && <button className={styles.primaryButton} onClick={onCreate}><Plus size={17} /> {definition.createLabel}</button>}
         </div>
       </section>
 
       <section className={styles.summaryStrip}>
-        <div><span>Tổng dữ liệu</span><strong>{definition.rows.length}</strong></div>
-        <div><span>Đang hoạt động</span><strong>{Math.max(1, definition.rows.length - 1)}</strong></div>
-        <div><span>Cần xử lý</span><strong className={styles.warningText}>{Math.min(3, definition.rows.length)}</strong></div>
-        <div><span>Cập nhật gần nhất</span><strong>Vừa xong</strong></div>
+        <div><span>Tổng dữ liệu</span><strong>{allRows.length}</strong></div>
+        <div><span>Đang lọc</span><strong>{filteredRows.length}</strong></div>
+        <div><span>Cần xử lý</span><strong className={styles.warningText}>{actionable}</strong></div>
+        <div><span>Nguồn</span><strong>{loading ? "Đang tải…" : "Máy chủ"}</strong></div>
       </section>
 
       <section className={styles.panel}>
@@ -721,12 +707,19 @@ function ManagementView({ definition, query, onQueryChange, onCreate, onInspect,
                       {column.key === "status" ? <StatusBadge>{row[column.key]}</StatusBadge> : index === 0 ? <strong>{row[column.key]}</strong> : row[column.key]}
                     </td>
                   ))}
-                  <td data-label="Thao tác"><div className={styles.rowActions}><button onClick={() => onInspect(row)} title="Xem chi tiết" aria-label={`Xem chi tiết ${row.id}`}><Eye size={16} /></button><button onClick={() => onQuickUpdate(row)} title="Đánh dấu đã xử lý" aria-label={`Đánh dấu ${row.id} đã xử lý`}><CheckCircle2 size={16} /></button></div></td>
+                  <td data-label="Thao tác">
+                    <div className={styles.rowActions}>
+                      <button onClick={() => onInspect(row)} title="Xem chi tiết" aria-label={`Xem chi tiết ${row.id}`}><Eye size={16} /></button>
+                      {row._action ? <button onClick={() => onQuickUpdate(row)} title={row._action} aria-label={`${row._action} ${row.id}`}><CheckCircle2 size={16} /></button> : null}
+                      {onDelete ? <button className={styles.rowDelete} onClick={() => onDelete(row)} title="Xóa (xóa mềm)" aria-label={`Xóa ${row.id}`}><Trash2 size={16} /></button> : null}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {!filteredRows.length && <div className={styles.emptyState}><Search size={24} /><strong>Không tìm thấy dữ liệu</strong><span>Thử thay đổi từ khóa hoặc bộ lọc trạng thái.</span></div>}
+          {loading && !allRows.length && <div className={styles.emptyState}><LoaderCircle size={24} className="animate-spin" /><strong>Đang tải dữ liệu…</strong></div>}
+          {!loading && !filteredRows.length && <div className={styles.emptyState}><Search size={24} /><strong>{allRows.length ? "Không tìm thấy dữ liệu" : "Chưa có dữ liệu"}</strong><span>{allRows.length ? "Thử thay đổi từ khóa hoặc bộ lọc trạng thái." : "Dữ liệu sẽ xuất hiện khi có phát sinh trên cửa hàng."}</span></div>}
         </div>
         <div className={styles.pagination}><span>Hiển thị <strong>{rows.length}</strong> / {filteredRows.length} kết quả</span><div><button disabled={currentPage === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Trước</button><button className={styles.pageActive}>{currentPage} / {pageCount}</button><button disabled={currentPage === pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>Tiếp</button></div></div>
       </section>
@@ -734,78 +727,44 @@ function ManagementView({ definition, query, onQueryChange, onCreate, onInspect,
   );
 }
 
-type DraftData = {
-  name: string;
-  category: string;
-  status: string;
-  value: string;
-  quantity: string;
-  description: string;
-};
-
-function useDialogBehavior(onClose: () => void) {
-  const dialogRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-      if (event.key !== "Tab" || !dialogRef.current) return;
-      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'));
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
-      previousFocus?.focus();
-    };
-  }, [onClose]);
-
-  return dialogRef;
-}
-
-function CreateModal({ title, onClose, onSave }: { title: string; onClose: () => void; onSave: (draft: DraftData) => void }) {
+/** Generates a report for a period; the only "create" flow still needed in this dashboard. */
+function ReportModal({ onClose, onCreated }: { onClose: () => void; onCreated: (message: string) => void }) {
   const dialogRef = useDialogBehavior(onClose);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const now = new Date();
+  const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  const today = now.toISOString().slice(0, 10);
 
   return (
     <div className={styles.modalLayer} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section ref={dialogRef} className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="create-title">
-        <div className={styles.modalHeader}><div><span>TẠO DỮ LIỆU MỚI</span><h2 id="create-title">{title}</h2></div><button onClick={onClose} aria-label="Đóng"><X size={20} /></button></div>
-        <form onSubmit={(event) => {
+        <div className={styles.modalHeader}><div><span>BÁO CÁO</span><h2 id="create-title">Tạo báo cáo</h2></div><button onClick={onClose} aria-label="Đóng"><X size={20} /></button></div>
+        <form onSubmit={async (event) => {
           event.preventDefault();
           const data = new FormData(event.currentTarget);
-          onSave({
-            name: String(data.get("name") ?? ""),
-            category: String(data.get("category") ?? ""),
-            status: String(data.get("status") ?? ""),
-            value: String(data.get("value") ?? ""),
-            quantity: String(data.get("quantity") ?? ""),
-            description: String(data.get("description") ?? ""),
-          });
+          setPending(true);
+          setError(null);
+          try {
+            const report = await adminApi.generateReport({
+              kind: String(data.get("kind")),
+              periodStart: new Date(String(data.get("periodStart"))).toISOString(),
+              periodEnd: new Date(`${String(data.get("periodEnd"))}T23:59:59`).toISOString(),
+            });
+            onCreated(`Báo cáo "${report.name}" đã sẵn sàng (${Array.isArray(report.params?.result) ? (report.params?.result as unknown[]).length : 0} dòng).`);
+          } catch (caught) {
+            setError(caught instanceof Error ? caught.message : "Không tạo được báo cáo.");
+          } finally {
+            setPending(false);
+          }
         }}>
           <div className={styles.formGrid}>
-            <label className={styles.fullField}><span>Tên / tiêu đề</span><input name="name" required placeholder="Nhập tên hiển thị" autoFocus /></label>
-            <label><span>Danh mục</span><select name="category" defaultValue="Tài khoản"><option>Tài khoản</option><option>Phần mềm</option><option>Proxy & VPN</option><option>Dịch vụ</option></select></label>
-            <label><span>Trạng thái</span><select name="status" defaultValue="Hoạt động"><option>Hoạt động</option><option>Bản nháp</option><option>Tạm ẩn</option></select></label>
-            <label><span>Giá / giá trị</span><input name="value" inputMode="numeric" pattern="[0-9]*" placeholder="0" /></label>
-            <label><span>Số lượng</span><input name="quantity" inputMode="numeric" pattern="[0-9]*" placeholder="0" /></label>
-            <label className={styles.fullField}><span>Mô tả</span><textarea name="description" rows={4} placeholder="Thông tin chi tiết..." /></label>
+            <label className={styles.fullField}><span>Loại báo cáo</span><select name="kind" defaultValue="revenue_by_product">{Object.entries(REPORT_KINDS).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}</select></label>
+            <label><span>Từ ngày</span><input name="periodStart" type="date" defaultValue={firstOfMonth} required /></label>
+            <label><span>Đến ngày</span><input name="periodEnd" type="date" defaultValue={today} required /></label>
           </div>
-          <div className={styles.modalActions}><button type="button" className={styles.secondaryButton} onClick={onClose}>Hủy</button><button type="submit" className={styles.primaryButton}><CheckCircle2 size={17} /> Lưu dữ liệu</button></div>
+          {error ? <p role="alert" className={styles.inlineAlert}>{error}</p> : null}
+          <div className={styles.modalActions}><button type="button" className={styles.secondaryButton} onClick={onClose}>Hủy</button><button type="submit" className={styles.primaryButton} disabled={pending}><CheckCircle2 size={17} /> {pending ? "Đang tạo…" : "Tạo báo cáo"}</button></div>
         </form>
       </section>
     </div>
@@ -821,39 +780,23 @@ function DetailModal({ definition, row, onClose, onUpdate }: { definition: Modul
         <div className={styles.detailGrid}>
           {definition.columns.map((column) => <div key={column.key}><span>{column.label}</span>{column.key === "status" ? <StatusBadge>{row[column.key]}</StatusBadge> : <strong>{row[column.key] || "—"}</strong>}</div>)}
         </div>
-        <div className={styles.modalActions}><button type="button" className={styles.secondaryButton} onClick={onClose}>Đóng</button><button type="button" className={styles.primaryButton} onClick={onUpdate}><CheckCircle2 size={17} /> Đánh dấu đã xử lý</button></div>
+        <div className={styles.modalActions}>
+          <button type="button" className={styles.secondaryButton} onClick={onClose}>Đóng</button>
+          {row._action ? <button type="button" className={styles.primaryButton} onClick={onUpdate}><CheckCircle2 size={17} /> {row._action}</button> : null}
+        </div>
       </section>
     </div>
   );
 }
 
-function createClientRow(definition: ModuleDefinition, draft: DraftData): DataRow {
-  const id = `NEW-${Date.now().toString().slice(-6)}`;
-  const row: DataRow = { id };
-  for (const column of definition.columns) {
-    if (column.key === "id") continue;
-    if (["name", "title", "product", "customer", "subject", "account"].includes(column.key)) row[column.key] = draft.name;
-    else if (column.key === "category" || column.key === "channel" || column.key === "type") row[column.key] = draft.category;
-    else if (column.key === "status") row[column.key] = draft.status;
-    else if (["price", "value", "revenue", "spend"].includes(column.key)) row[column.key] = draft.value ? `${Number(draft.value).toLocaleString("vi-VN")}đ` : "0đ";
-    else if (["stock", "available", "products", "orders", "uses"].includes(column.key)) row[column.key] = draft.quantity || "0";
-    else if (column.key === "description") row[column.key] = draft.description || "Chưa có mô tả";
-    else if (["date", "updated", "created"].includes(column.key)) row[column.key] = "Vừa xong";
-    else row[column.key] = "—";
-  }
-  return row;
-}
-
-const completedStatus: Record<Exclude<ModuleId, "overview">, string> = {
-  orders: "Hoàn tất", products: "Đang bán", inventory: "Ổn định", customers: "Hoạt động",
-  transactions: "Thành công", deposits: "Hoàn tất", categories: "Hiển thị", promotions: "Đang chạy", content: "Đang hiển thị",
-  support: "Đã đóng", reports: "Sẵn sàng", settings: "Đã cấu hình",
-};
-
-type StoredRows = Partial<Record<Exclude<ModuleId, "overview">, DataRow[]>>;
-const storageKey = "aihub-admin-client-rows-v1";
-
-export function AdminDashboard({ initialView = "overview" }: { initialView?: AdminSection }) {
+export function AdminDashboard({
+  initialView = "overview",
+  productEditor,
+}: {
+  initialView?: AdminSection;
+  /** When set, the main area shows the full-page product editor (`id` undefined = create). */
+  productEditor?: { id?: number };
+}) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const active = initialView;
@@ -861,60 +804,38 @@ export function AdminDashboard({ initialView = "overview" }: { initialView?: Adm
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [detailRow, setDetailRow] = useState<DataRow | null>(null);
-  const [storedRows, setStoredRows] = useState<StoredRows>({});
-  const [storageReady, setStorageReady] = useState(false);
-  const [notifications, setNotifications] = useState(initialNotifications);
+  /** Section-specific editor/detail dialog; `id` undefined = create. */
+  const [editor, setEditor] = useState<{ section: ModuleSection; id?: number | string } | null>(null);
   const [notificationOpen, setNotificationOpen] = useState(false);
-  const [toast, setToast] = useState("");
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<number | null>(null);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      try {
-        const saved = window.localStorage.getItem(storageKey);
-        if (saved) setStoredRows(JSON.parse(saved) as StoredRows);
-      } catch {
-        window.localStorage.removeItem(storageKey);
-      } finally {
-        setStorageReady(true);
-      }
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
+  const { stats, error: statsError, refresh: refreshStats } = useAdminStats();
+  const notifications = useAdminNotifications();
+  const remote = useAdminModuleRows(isReleased(active) ? active : "overview");
 
   useEffect(() => {
-    const closeNotifications = (event: PointerEvent) => {
+    const closePopups = (event: PointerEvent) => {
       if (!notificationRef.current?.contains(event.target as Node)) setNotificationOpen(false);
+      if (!profileRef.current?.contains(event.target as Node)) setProfileOpen(false);
     };
     const closeWithEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setNotificationOpen(false);
+      if (event.key === "Escape") {
+        setNotificationOpen(false);
+        setProfileOpen(false);
+      }
     };
-    document.addEventListener("pointerdown", closeNotifications);
+    document.addEventListener("pointerdown", closePopups);
     document.addEventListener("keydown", closeWithEscape);
     return () => {
-      document.removeEventListener("pointerdown", closeNotifications);
+      document.removeEventListener("pointerdown", closePopups);
       document.removeEventListener("keydown", closeWithEscape);
     };
   }, []);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      try {
-        const saved = window.localStorage.getItem(notificationStorageKey);
-        const readIds = saved ? new Set(JSON.parse(saved) as string[]) : new Set<string>();
-        if (readIds.size) setNotifications((current) => current.map((item) => readIds.has(item.id) ? { ...item, unread: false } : item));
-      } catch {
-        window.localStorage.removeItem(notificationStorageKey);
-      }
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    if (storageReady) window.localStorage.setItem(storageKey, JSON.stringify(storedRows));
-  }, [storageReady, storedRows]);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -931,6 +852,19 @@ export function AdminDashboard({ initialView = "overview" }: { initialView?: Adm
     if (toastTimer.current) window.clearTimeout(toastTimer.current);
   }, []);
 
+  // Show a toast queued by a full-page editor before it navigated here.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const queued = takeQueuedToast();
+      if (queued) {
+        setToast({ message: queued, tone: "success" });
+        if (toastTimer.current) window.clearTimeout(toastTimer.current);
+        toastTimer.current = window.setTimeout(() => setToast(null), 2800);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const profileInitials = (user?.fullName ?? "Quản trị viên")
     .split(/\s+/)
     .filter(Boolean)
@@ -943,60 +877,123 @@ export function AdminDashboard({ initialView = "overview" }: { initialView?: Adm
     router.push("/");
   };
 
-  const notify = (message: string) => {
-    setToast(message);
+  const notify = (message: string, tone: "success" | "error" = "success") => {
+    setToast({ message, tone });
     if (toastTimer.current) window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToast(""), 2800);
+    toastTimer.current = window.setTimeout(() => setToast(null), tone === "error" ? 4600 : 2800);
   };
 
   const selectModule = (id: ModuleId) => {
     setQuery("");
     setDetailRow(null);
+    setEditor(null);
     setNotificationOpen(false);
     router.push(id === "overview" ? "/admin" : `/admin/${id}`);
   };
 
-  const activeLabel = navGroups.flatMap((group) => group.items).find((item) => item.id === active)?.label ?? "Quản trị";
-  const baseDefinition = active === "overview" ? null : moduleDefinitions[active];
-  const definition = baseDefinition && active !== "overview" ? { ...baseDefinition, rows: storedRows[active] ?? baseDefinition.rows } : null;
-  const unreadNotifications = notifications.filter((notification) => notification.unread).length;
+  const EDITABLE_SECTIONS: ModuleSection[] = ["categories", "promotions", "content", "settings", "orders", "support", "deposits", "customers"];
 
-  const saveReadNotifications = (items: AdminNotification[]) => {
-    const readIds = items.filter((item) => !item.unread).map((item) => item.id);
-    window.localStorage.setItem(notificationStorageKey, JSON.stringify(readIds));
+  /** "Xem chi tiết": products open their own page; other sections open a dialog or the generic detail. */
+  const inspectRow = (row: DataRow) => {
+    if (active === "products" && row._ref) {
+      router.push(`/admin/products/${row._ref}`);
+      return;
+    }
+    if (active !== "overview" && EDITABLE_SECTIONS.includes(active) && row._ref) {
+      setEditor({ section: active, id: active === "settings" ? row.id : Number(row._ref) });
+      return;
+    }
+    setDetailRow(row);
   };
+
+  const createInSection = () => {
+    if (active === "reports") {
+      setCreateOpen(true);
+      return;
+    }
+    if (active === "products") {
+      router.push("/admin/products/new");
+      return;
+    }
+    if (active !== "overview") setEditor({ section: active });
+  };
+
+  const afterEditorSaved = async (message: string) => {
+    setEditor(null);
+    notify(message);
+    await Promise.all([remote.refresh(), refreshStats()]);
+  };
+
+  const sectionLabel = [...navGroups.flatMap((group) => group.items), ...profileMenuItems].find((item) => item.id === active)?.label ?? "Quản trị";
+  const activeLabel = productEditor ? (productEditor.id ? `${sectionLabel} › SP-${productEditor.id}` : `${sectionLabel} › Thêm mới`) : sectionLabel;
+  const definition = active === "overview" ? null : moduleDefinitions[active];
+  const rows = remote.rows ?? [];
 
   const openNotification = (notification: AdminNotification) => {
-    setNotifications((current) => {
-      const next = current.map((item) => item.id === notification.id ? { ...item, unread: false } : item);
-      saveReadNotifications(next);
-      return next;
-    });
-    selectModule(notification.section);
+    if (!notification.readAt) void notifications.markRead(notification.id);
+    selectModule(sectionForNotification(notification));
   };
 
-  const updateRow = (row: DataRow) => {
-    if (!definition || active === "overview") return;
-    const nextStatus = completedStatus[active];
-    setStoredRows((current) => {
-      const source = current[active] ?? moduleDefinitions[active].rows;
-      return { ...current, [active]: source.map((item) => item.id === row.id ? { ...item, status: nextStatus } : item) };
-    });
-    setDetailRow((current) => current?.id === row.id ? { ...current, status: nextStatus } : current);
-    notify(`${row.id} đã được cập nhật sang “${nextStatus}”.`);
+  /** Orders: pending -> confirm payment, processing -> deliver & complete (manual lines need a note). */
+  const advanceOrder = async (row: DataRow) => {
+    const orderId = Number(row._ref);
+    if (row._status === "pending_payment") {
+      await adminApi.confirmPayment(orderId);
+      notify(`${row.id} đã xác nhận thanh toán, chuyển sang Đang xử lý.`);
+    } else if (row._status === "processing") {
+      try {
+        await adminApi.completeOrder(orderId);
+      } catch (caught) {
+        if (!(caught instanceof Error) || !caught.message.includes("deliveryNotes")) throw caught;
+        const note = await promptText({ title: "Giao thủ công", text: "Đơn có gói giao thủ công. Nhập nội dung đã giao cho khách:", multiline: true, confirmText: "Dùng nội dung này" });
+        if (!note?.trim()) return;
+        const order = await adminApi.getOrder(orderId);
+        await adminApi.completeOrder(orderId, Object.fromEntries(order.items.map((item) => [String(item.id), note.trim()])));
+      }
+      notify(`${row.id} đã hoàn tất và giao hàng.`);
+    } else {
+      return;
+    }
+    const updated = orderToRow(await adminApi.getOrder(orderId));
+    setDetailRow((current) => (current?.id === row.id ? updated : current));
   };
 
-  const saveRow = (draft: DraftData) => {
-    if (!definition || active === "overview") return;
-    const newRow = createClientRow(definition, draft);
-    setStoredRows((current) => ({ ...current, [active]: [newRow, ...(current[active] ?? moduleDefinitions[active].rows)] }));
-    setCreateOpen(false);
-    notify("Đã lưu dữ liệu mới trên thiết bị này.");
+  /** Xóa mềm từ bảng: bản ghi bị ẩn khỏi cửa hàng, dữ liệu vẫn giữ trong DB. */
+  const deleteRow = async (row: DataRow) => {
+    const id = Number(row._ref);
+    if (!(await confirmDanger(`Xóa ${row.id}?`, "Bản ghi sẽ bị ẩn khỏi cửa hàng (xóa mềm), dữ liệu vẫn được giữ lại."))) return;
+    try {
+      if (active === "products") await adminApi.deleteProduct(id);
+      else if (active === "categories") await adminApi.deleteCategory(id);
+      else if (active === "promotions") await adminApi.deletePromotion(id);
+      else if (active === "content") await adminApi.deleteContentBlock(id);
+      else return;
+      notify(`Đã xóa ${row.id}.`);
+      setDetailRow(null);
+      await Promise.all([remote.refresh(), refreshStats()]);
+    } catch (caught) {
+      notify(caught instanceof Error ? caught.message : "Không xóa được bản ghi.", "error");
+    }
+  };
+
+  const updateRow = async (row: DataRow) => {
+    if (!definition || active === "overview" || !row._action) return;
+    try {
+      if (active === "orders") {
+        await advanceOrder(row);
+      } else {
+        notify(await runRowAction(active, row));
+        setDetailRow(null);
+      }
+      await Promise.all([remote.refresh(), refreshStats()]);
+    } catch (caught) {
+      notify(caught instanceof Error ? caught.message : "Không thực hiện được thao tác.", "error");
+    }
   };
 
   return (
     <div className={styles.shell}>
-      <AdminSidebar active={active} open={menuOpen} onSelect={selectModule} onClose={() => setMenuOpen(false)} onLogout={handleLogout} />
+      <AdminSidebar active={active} open={menuOpen} badges={stats?.badges ?? null} onSelect={selectModule} onClose={() => setMenuOpen(false)} onLogout={handleLogout} />
       <div className={styles.mainArea}>
         <header className={styles.topbar}>
           <div className={styles.topbarLeft}>
@@ -1010,39 +1007,36 @@ export function AdminDashboard({ initialView = "overview" }: { initialView?: Adm
               <button
                 className={`${styles.notificationButton} ${notificationOpen ? styles.notificationButtonOpen : ""}`}
                 onClick={() => setNotificationOpen((open) => !open)}
-                aria-label={`Thông báo, ${unreadNotifications} chưa đọc`}
+                aria-label={`Thông báo, ${notifications.unreadCount} chưa đọc`}
                 aria-haspopup="dialog"
                 aria-expanded={notificationOpen}
               >
                 <Bell size={18} />
-                {unreadNotifications > 0 && <i>{unreadNotifications > 9 ? "9+" : unreadNotifications}</i>}
+                {notifications.unreadCount > 0 && <i>{notifications.unreadCount > 9 ? "9+" : notifications.unreadCount}</i>}
               </button>
               {notificationOpen && (
                 <section className={styles.notificationPanel} role="dialog" aria-label="Trung tâm thông báo">
                   <div className={styles.notificationHeader}>
-                    <div><h2>Thông báo</h2><span>{unreadNotifications ? `${unreadNotifications} thông báo chưa đọc` : "Bạn đã đọc tất cả"}</span></div>
-                    {unreadNotifications > 0 && <button onClick={() => setNotifications((current) => {
-                      const next = current.map((item) => ({ ...item, unread: false }));
-                      saveReadNotifications(next);
-                      return next;
-                    })}>Đánh dấu đã đọc</button>}
+                    <div><h2>Thông báo</h2><span>{notifications.unreadCount ? `${notifications.unreadCount} thông báo chưa đọc` : "Bạn đã đọc tất cả"}</span></div>
+                    {notifications.unreadCount > 0 && <button onClick={() => void notifications.markAllRead()}>Đánh dấu đã đọc</button>}
                   </div>
                   <div className={styles.notificationList}>
-                    {notifications.map((notification) => {
-                      const Icon = notification.icon;
+                    {notifications.items.length === 0 ? <p className={styles.emptyNote}>Chưa có thông báo nào.</p> : null}
+                    {notifications.items.map((notification) => {
+                      const Icon = notificationIcons[notification.section ?? ""] ?? Bell;
                       return (
                         <button
                           key={notification.id}
-                          className={notification.unread ? styles.notificationUnread : ""}
+                          className={!notification.readAt ? styles.notificationUnread : ""}
                           onClick={() => openNotification(notification)}
                         >
                           <span className={`${styles.notificationIcon} ${styles[notification.tone]}`}><Icon size={16} /></span>
                           <span className={styles.notificationContent}>
                             <strong>{notification.title}</strong>
-                            <small>{notification.description}</small>
-                            <time>{notification.time}</time>
+                            <small>{notification.body}</small>
+                            <time title={formatDateTime(notification.createdAt)}>{timeAgo(notification.createdAt)}</time>
                           </span>
-                          {notification.unread && <span className={styles.unreadDot} aria-label="Chưa đọc" />}
+                          {!notification.readAt && <span className={styles.unreadDot} aria-label="Chưa đọc" />}
                         </button>
                       );
                     })}
@@ -1051,16 +1045,73 @@ export function AdminDashboard({ initialView = "overview" }: { initialView?: Adm
                 </section>
               )}
             </div>
-            <button className={styles.profileButton} onClick={() => selectModule("settings")}><span>{profileInitials}</span><div><strong>{user?.fullName ?? "Quản trị viên"}</strong><small>{user ? roleLabels[user.role] : "Toàn quyền"}</small></div><ChevronDown size={15} /></button>
+            <div ref={profileRef} className={styles.profileWrap}>
+              <button
+                className={`${styles.profileButton} ${profileOpen ? styles.profileButtonOpen : ""}`}
+                onClick={() => setProfileOpen((open) => !open)}
+                aria-haspopup="menu"
+                aria-expanded={profileOpen}
+              >
+                <span>{profileInitials}</span>
+                <div><strong>{user?.fullName ?? "Quản trị viên"}</strong><small>{user ? roleLabels[user.role] : "Toàn quyền"}</small></div>
+                <ChevronDown size={15} />
+              </button>
+              {profileOpen && (
+                <section className={styles.profileMenu} role="menu" aria-label="Menu hệ thống">
+                  {profileMenuItems.filter((item) => !item.hidden).map((item) => {
+                    const Icon = item.icon;
+                    const released = isReleased(item.id);
+                    const badge = released && item.badge && stats ? stats.badges[item.badge] : 0;
+                    return (
+                      <button
+                        key={item.id}
+                        role="menuitem"
+                        className={`${active === item.id ? styles.profileMenuActive : ""} ${released ? "" : styles.profileMenuPending}`}
+                        onClick={() => { selectModule(item.id); setProfileOpen(false); }}
+                        disabled={!released}
+                        title={released ? undefined : "Phân hệ này sẽ được bàn giao ở đợt tiếp theo"}
+                      >
+                        <Icon size={17} />
+                        <span>{item.label}</span>
+                        {badge > 0 && <em>{badge > 99 ? "99+" : badge}</em>}
+                        {!released && <em className={styles.profileMenuSoon}>Đang hoàn thiện</em>}
+                      </button>
+                    );
+                  })}
+                  <hr />
+                  <button role="menuitem" className={styles.profileMenuLogout} onClick={() => { setProfileOpen(false); void handleLogout(); }}>
+                    <LogOut size={17} />
+                    <span>Đăng xuất</span>
+                  </button>
+                </section>
+              )}
+            </div>
           </div>
         </header>
         <main className={styles.content}>
-          {active === "overview" ? <Overview onNavigate={selectModule} notify={notify} /> : definition && <ManagementView key={active} definition={definition} query={query} onQueryChange={setQuery} onCreate={() => setCreateOpen(true)} onInspect={setDetailRow} onQuickUpdate={updateRow} notify={notify} />}
+          {remote.error && !productEditor ? <p role="alert" className={styles.inlineAlert}>Không tải được dữ liệu từ máy chủ: {remote.error}</p> : null}
+          {productEditor ? (
+            <ProductEditor key={productEditor.id ?? "new"} productId={productEditor.id} notify={notify} />
+          ) : active === "overview" ? (
+            <Overview stats={stats} statsError={statsError} userName={user?.fullName ?? "Quản trị viên"} onNavigate={selectModule} onOpenProduct={(id) => router.push(`/admin/products/${id}`)} onRefresh={() => { void refreshStats(); void notifications.refresh(); notify("Đã làm mới số liệu."); }} />
+          ) : !isReleased(active) ? (
+            <PendingSection label={sectionLabel} onBack={() => selectModule("overview")} />
+          ) : definition && (
+            <ManagementView key={active} definition={definition} rows={rows} loading={remote.loading} query={query} onQueryChange={setQuery} onCreate={createInSection} onInspect={inspectRow} onQuickUpdate={(row) => void updateRow(row)} onDelete={DELETABLE.has(active) ? (row) => void deleteRow(row) : undefined} />
+          )}
         </main>
       </div>
-      {createOpen && definition && <CreateModal title={definition.createLabel ?? "Thêm dữ liệu"} onClose={() => setCreateOpen(false)} onSave={saveRow} />}
-      {detailRow && definition && <DetailModal definition={definition} row={detailRow} onClose={() => setDetailRow(null)} onUpdate={() => updateRow(detailRow)} />}
-      <div className={`${styles.toast} ${toast ? styles.toastVisible : ""}`} role="status"><CheckCircle2 size={18} />{toast}</div>
+      {createOpen && active === "reports" && <ReportModal onClose={() => setCreateOpen(false)} onCreated={(message) => { setCreateOpen(false); notify(message); void remote.refresh(); }} />}
+      {detailRow && definition && <DetailModal definition={definition} row={detailRow} onClose={() => setDetailRow(null)} onUpdate={() => void updateRow(detailRow)} />}
+      {editor?.section === "categories" && <CategoryForm categoryId={editor.id as number | undefined} onClose={() => setEditor(null)} onSaved={(message) => void afterEditorSaved(message)} />}
+      {editor?.section === "promotions" && <PromotionForm promotionId={editor.id as number | undefined} onClose={() => setEditor(null)} onSaved={(message) => void afterEditorSaved(message)} />}
+      {editor?.section === "content" && <ContentBlockForm blockId={editor.id as number | undefined} onClose={() => setEditor(null)} onSaved={(message) => void afterEditorSaved(message)} />}
+      {editor?.section === "settings" && typeof editor.id === "string" && <SettingForm settingKey={editor.id} onClose={() => setEditor(null)} onSaved={(message) => void afterEditorSaved(message)} />}
+      {editor?.section === "orders" && typeof editor.id === "number" && <OrderDetail orderId={editor.id} onClose={() => setEditor(null)} onChanged={(message) => { notify(message); void Promise.all([remote.refresh(), refreshStats()]); }} />}
+      {editor?.section === "support" && typeof editor.id === "number" && <TicketDetail ticketId={editor.id} onClose={() => setEditor(null)} onChanged={(message) => { notify(message); void Promise.all([remote.refresh(), refreshStats()]); }} />}
+      {editor?.section === "deposits" && typeof editor.id === "number" && <FundRequestDetail requestId={editor.id} onClose={() => setEditor(null)} onChanged={(message) => void afterEditorSaved(message)} />}
+      {editor?.section === "customers" && typeof editor.id === "number" && <CustomerDetail userId={editor.id} onClose={() => setEditor(null)} onChanged={(message) => { notify(message); void remote.refresh(); }} />}
+      <div className={`${styles.toast} ${toast?.tone === "error" ? styles.toastError : ""} ${toast ? styles.toastVisible : ""}`} role="status">{toast?.tone === "error" ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}{toast?.message}</div>
     </div>
   );
 }

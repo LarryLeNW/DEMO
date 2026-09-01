@@ -7,6 +7,7 @@ import { useCommerce } from "@/components/commerce/commerce-provider";
 import type { Product } from "@/types/commerce";
 import { Price } from "@/features/catalog/components/price";
 import { RatingStars } from "@/features/catalog/components/rating-stars";
+import { cheapestVariant } from "@/lib/commerce-mapping";
 
 type ProductCardProps = {
   product: Product;
@@ -20,8 +21,18 @@ export function ProductCard({
   buttonLabel = "Chọn gói",
 }: ProductCardProps) {
   const commerce = useCommerce();
-  const defaultVariant = product.variants[0];
+  const defaultVariant = cheapestVariant(product);
   const isWishlisted = commerce.isWishlisted(product.slug);
+  const canBuy = Boolean(defaultVariant.apiVariantId) && defaultVariant.stockStatus !== "out_of_stock";
+
+  const snapshot = {
+    id: product.id,
+    slug: product.slug,
+    title: product.name,
+    image: product.images[0].src,
+    price: defaultVariant.salePrice,
+    regularPrice: defaultVariant.regularPrice,
+  };
 
   return (
     <article className="group overflow-hidden rounded-[8px] border border-[#dfe8f2] bg-surface shadow-[0_4px_14px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-[var(--shadow-soft)]">
@@ -36,7 +47,7 @@ export function ProductCard({
             className="object-cover transition duration-300 group-hover:scale-105"
           />
         </Link>
-        {product.badges.map((badge) => (
+        {product.badges.slice(0, 1).map((badge) => (
           <span
             key={badge}
             className="absolute left-3 top-3 rounded-full bg-[#ff4d6d] px-3 py-1.5 text-xs font-extrabold text-white"
@@ -47,22 +58,13 @@ export function ProductCard({
         <button
           className={
             isWishlisted
-              ? "focus-ring absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-[#ff4d6d] text-white shadow-sm transition"
-              : "focus-ring absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-white text-slate-700 shadow-sm transition hover:text-danger"
+              ? "focus-ring absolute right-3 top-3 grid size-9 cursor-pointer place-items-center rounded-full bg-[#ff4d6d] text-white shadow-sm transition"
+              : "focus-ring absolute right-3 top-3 grid size-9 cursor-pointer place-items-center rounded-full bg-white text-slate-700 shadow-sm transition hover:text-danger"
           }
           type="button"
           aria-label="Thêm vào yêu thích"
           title="Thêm vào yêu thích"
-          onClick={() =>
-            commerce.toggleWishlist({
-              id: product.id,
-              slug: product.slug,
-              title: product.name,
-              image: product.images[0].src,
-              price: defaultVariant.salePrice,
-              regularPrice: defaultVariant.regularPrice,
-            })
-          }
+          onClick={() => commerce.toggleWishlist(snapshot)}
         >
           <Heart size={18} className={isWishlisted ? "fill-current" : ""} aria-hidden="true" />
         </button>
@@ -77,38 +79,39 @@ export function ProductCard({
             {product.name}
           </Link>
           <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted">
-            <RatingStars rating={product.ratingAverage} compact />
-            <span>{product.soldCount.toLocaleString("vi-VN")} đã bán</span>
+            {product.reviewCount > 0 ? (
+              <RatingStars rating={product.ratingAverage} compact />
+            ) : (
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-extrabold uppercase text-emerald-700">
+                Mới
+              </span>
+            )}
+            {product.soldCount > 0 ? (
+              <span>{product.soldCount.toLocaleString("vi-VN")} đã bán</span>
+            ) : null}
           </div>
         </div>
 
-        <Price
-          salePrice={defaultVariant.salePrice}
-          regularPrice={defaultVariant.regularPrice}
-        />
+        {defaultVariant.salePrice > 0 ? (
+          <Price salePrice={defaultVariant.salePrice} regularPrice={defaultVariant.regularPrice} />
+        ) : (
+          <p className="text-[13px] font-bold text-muted">Liên hệ để báo giá</p>
+        )}
 
         <button
-          className="focus-ring inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-[6px] bg-[#ecfdf5] px-3 text-[12px] font-extrabold text-[#15803d] transition hover:bg-[#dcfce7]"
+          className="focus-ring inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-[6px] bg-[#ecfdf5] px-3 text-[12px] font-extrabold text-[#15803d] transition hover:bg-[#dcfce7] disabled:cursor-not-allowed disabled:opacity-60"
           type="button"
+          disabled={!canBuy}
           onClick={() =>
-            commerce.addToCart(
-              {
-                id: product.id,
-                slug: product.slug,
-                title: product.name,
-                image: product.images[0].src,
-                price: defaultVariant.salePrice,
-                regularPrice: defaultVariant.regularPrice,
-              },
-              {
-                variantLabel: defaultVariant.attributes.accountType,
-                durationLabel: defaultVariant.attributes.duration,
-              },
-            )
+            commerce.addToCart(snapshot, {
+              variantId: defaultVariant.apiVariantId,
+              variantLabel: defaultVariant.attributes.accountType,
+              durationLabel: defaultVariant.attributes.duration || undefined,
+            })
           }
         >
           <ShoppingCart size={14} aria-hidden="true" />
-          {buttonLabel}
+          {canBuy ? buttonLabel : "Hết hàng"}
         </button>
       </div>
     </article>

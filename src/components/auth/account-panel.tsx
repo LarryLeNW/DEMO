@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { LoaderCircle, LogOut, ShieldCheck } from "lucide-react";
 import { LoginForm, RegisterForm } from "@/components/auth/auth-forms";
 import { useAuth } from "@/components/auth/auth-provider";
+import { RecentOrders } from "@/components/orders/recent-orders";
 import { roleLabels, type AuthUser } from "@/lib/api/auth";
 
 type Tab = "login" | "register";
@@ -72,6 +73,8 @@ export function AccountPanel({ onNavigate }: { onNavigate?: () => void }) {
             </dd>
           </div>
         </dl>
+
+        <RecentOrders email={user.email} onNavigate={onNavigate} />
 
         <div className="mt-5 grid gap-2">
           {user.role === "admin" ? (

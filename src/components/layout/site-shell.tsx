@@ -1,15 +1,23 @@
 import type { ReactNode } from "react";
-import { FloatingContactBar } from "@/components/layout/floating-contact-bar";
-import { SiteFooter } from "@/components/layout/site-footer";
-import { SiteHeader } from "@/components/layout/site-header";
 import { SiteShellClient } from "@/components/layout/site-shell-client";
+import type { ApiCategory } from "@/lib/api/catalog";
+import { serverFetch } from "@/lib/api/server";
+import { DEFAULT_PUBLIC_SETTINGS, type PublicSettings } from "@/lib/api/settings";
 
 type SiteShellProps = {
   children: ReactNode;
 };
 
-export function SiteShell({ children }: SiteShellProps) {
-  return <SiteShellClient header={<SiteHeader />} footer={<SiteFooter />} floating={<FloatingContactBar />}>
-    {children}
-  </SiteShellClient>;
+/** Loads navigation data once per request (cached 5 min) and hands plain data to the client shell. */
+export async function SiteShell({ children }: SiteShellProps) {
+  const [categories, settings] = await Promise.all([
+    serverFetch<ApiCategory[]>("/categories", { revalidate: 300 }),
+    serverFetch<PublicSettings>("/settings/public", { revalidate: 300 }),
+  ]);
+
+  return (
+    <SiteShellClient categories={categories ?? []} settings={{ ...DEFAULT_PUBLIC_SETTINGS, ...settings }}>
+      {children}
+    </SiteShellClient>
+  );
 }

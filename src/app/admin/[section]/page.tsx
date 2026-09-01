@@ -13,6 +13,7 @@ const sections: AdminSection[] = [
   "promotions",
   "content",
   "support",
+  "reviews",
   "reports",
   "settings",
 ];

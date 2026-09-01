@@ -1,52 +1,61 @@
 import Link from "next/link";
+import { AIHubLogo } from "@/components/aihub-logo";
 import { siteConfig } from "@/config/site";
-import { generatedContent, type GeneratedCategory } from "@/lib/wp-content";
+import type { ApiCategory } from "@/lib/api/catalog";
+import { phoneHref, type PublicSettings } from "@/lib/api/settings";
 
 const policyLinks = [
   { href: "/huong-dan-mua-hang", label: "Hướng dẫn mua hàng" },
-  { href: "/chinh-sach-bao-hanh", label: "Chính sách bảo hành" },
+  { href: "/bao-hanh-va-hoan-tien", label: "Bảo hành & hoàn tiền" },
   { href: "/chinh-sach-bao-mat", label: "Chính sách bảo mật" },
   { href: "/dieu-khoan-dich-vu", label: "Điều khoản dịch vụ" },
+  { href: "/kiem-tra-don-hang", label: "Kiểm tra đơn hàng" },
 ];
 
-export function SiteFooter() {
-  const categories = (generatedContent as { productCategories: GeneratedCategory[] }).productCategories
-    .filter((category) => category.parent === 0)
-    .slice(0, 5);
+export function SiteFooter({
+  categories,
+  settings,
+}: {
+  categories: ApiCategory[];
+  settings: PublicSettings;
+}) {
+  const topLevel = categories.filter((category) => category.parentId === null).slice(0, 6);
+  const name = settings["store.name"] ?? siteConfig.name;
+  const email = settings["store.email"] ?? siteConfig.email;
+  const hotline = settings["store.hotline"] ?? siteConfig.phone;
 
   return (
     <footer className="mt-10 border-t border-border bg-white">
       <div className="container-page grid gap-8 py-10 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
         <div>
-          <h2 className="text-xl font-extrabold text-slate-950">
-            {siteConfig.name}
-          </h2>
+          <AIHubLogo size="md" name={name} />
           <p className="mt-3 max-w-md text-sm leading-7 text-muted">
+            {settings["store.tagline"] ? `${name} — ${settings["store.tagline"]}. ` : ""}
             {siteConfig.description}
           </p>
           <p className="mt-4 text-sm font-bold text-slate-700">
             Email:{" "}
-            <a href={`mailto:${siteConfig.email}`} className="hover:text-primary-strong">
-              {siteConfig.email}
+            <a href={`mailto:${email}`} className="hover:text-primary-strong">
+              {email}
             </a>
           </p>
           <p className="mt-1 text-sm font-bold text-slate-700">
             Hotline:{" "}
-            <a href={`tel:${siteConfig.phone.replace(/\s/g, "")}`} className="hover:text-primary-strong">
-              {siteConfig.phone}
+            <a href={phoneHref(hotline)} className="hover:text-primary-strong">
+              {hotline}
             </a>
           </p>
         </div>
         <div>
           <h3 className="font-extrabold text-slate-950">Danh mục</h3>
           <div className="mt-3 grid gap-2">
-            {categories.map((category) => (
+            {topLevel.map((category) => (
               <Link
                 key={category.id}
                 href={`/${category.path}`}
                 className="text-sm font-semibold text-muted transition hover:text-primary-strong"
               >
-                {category.title}
+                {category.name}
               </Link>
             ))}
           </div>

@@ -11,10 +11,10 @@ import {
   Sparkles,
 } from "lucide-react";
 import { siteConfig } from "@/config/site";
-import type { GeneratedRoute } from "@/lib/wp-content";
+import type { ContentDoc } from "@/lib/api/content";
 
 type AboutTemplateProps = {
-  page: GeneratedRoute;
+  page: ContentDoc;
 };
 
 const productGroups = [
@@ -59,7 +59,7 @@ const commitments = [
 ];
 
 export function AboutTemplate({ page }: AboutTemplateProps) {
-  const updatedAt = formatDate(page.modified ?? "");
+  const updatedAt = formatDate(page.updatedAt);
   const phoneHref = siteConfig.phone.replace(/\s/g, "");
 
   return (

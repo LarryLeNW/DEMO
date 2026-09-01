@@ -3,15 +3,20 @@
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import { FloatingContactBar } from "@/components/layout/floating-contact-bar";
+import { IntroSplash } from "@/components/layout/intro-splash";
+import { SiteFooter } from "@/components/layout/site-footer";
+import { SiteHeader } from "@/components/layout/site-header";
+import type { ApiCategory } from "@/lib/api/catalog";
+import type { PublicSettings } from "@/lib/api/settings";
 
 type SiteShellClientProps = {
   children: ReactNode;
-  header: ReactNode;
-  footer: ReactNode;
-  floating: ReactNode;
+  categories: ApiCategory[];
+  settings: PublicSettings;
 };
 
-export function SiteShellClient({ children, header, footer, floating }: SiteShellClientProps) {
+export function SiteShellClient({ children, categories, settings }: SiteShellClientProps) {
   const pathname = usePathname();
 
   useEffect(() => {
@@ -24,10 +29,11 @@ export function SiteShellClient({ children, header, footer, floating }: SiteShel
 
   return (
     <div className="flex min-h-screen flex-col pb-[calc(68px+env(safe-area-inset-bottom))] lg:pb-0">
-      {header}
+      <IntroSplash />
+      <SiteHeader categories={categories} settings={settings} />
       <div className="flex-1">{children}</div>
-      {footer}
-      {floating}
+      <SiteFooter categories={categories} settings={settings} />
+      <FloatingContactBar settings={settings} />
     </div>
   );
 }

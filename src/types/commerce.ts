@@ -14,6 +14,8 @@ export type ProductImage = {
 
 export type ProductVariant = {
   id: string;
+  /** Backend `product_variants.id` — required to check out; absent when the API was unreachable. */
+  apiVariantId?: number;
   sku: string;
   attributes: {
     accountType: string;

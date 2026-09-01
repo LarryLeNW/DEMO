@@ -10,203 +10,158 @@ import {
 } from "lucide-react";
 import { HeroCarousel } from "@/components/home/hero-carousel";
 import { ProductCard } from "@/features/catalog/components/product-card";
-import { replaceBrandText } from "@/lib/brand";
-import { generatedContent, type GeneratedProduct } from "@/lib/wp-content";
-import type { Product } from "@/types/commerce";
+import { fetchProductsBySlugs, type ApiProduct } from "@/lib/api/catalog";
+import type { ApiContentBlock } from "@/lib/api/content";
+import { serverFetch } from "@/lib/api/server";
+import type { HomeSection, PublicSettings } from "@/lib/api/settings";
+import { apiProductToCommerce } from "@/lib/commerce-mapping";
 
-const heroBanners = {
-  chatgpt: {
-    href: "/tai-khoan-chatgpt-plus",
-    src: "https://khotaikhoan.net/wp-content/uploads/2026/05/chatgpt-plus-banner.webp",
-    alt: "ChatGPT Plus",
-  },
-  megaSale: {
-    href: "/ung-dung-phan-mem-khac/cong-cu-ai",
-    src: "https://khotaikhoan.net/wp-content/uploads/2026/07/mega-sale-banner-20260720.jpg",
-    alt: "Mega Sale",
-  },
-  claude: {
-    href: "/tai-khoan-claude-ai",
-    src: "https://khotaikhoan.net/wp-content/uploads/2026/05/claude-ai-pro-max-banner.webp",
-    alt: "Claude AI Pro Max",
-  },
-  google: {
-    href: "/tai-khoan-google-ai-pro",
-    src: "https://khotaikhoan.net/wp-content/uploads/2026/05/google-ai-pro-banner.webp",
-    alt: "Google AI Pro",
-  },
-  sale: {
-    href: "/ung-dung-phan-mem-khac/cong-cu-ai",
-    src: "https://khotaikhoan.net/wp-content/uploads/2026/06/Sale-banner3.jpg",
-    alt: "Flash Sale",
-  },
-};
+export const revalidate = 60;
 
-const saleProducts = pickProducts([
-  "tai-khoan-pia-vpn",
-  "tai-khoan-chatgpt-plus",
-  "tai-khoan-hma-vpn-premium",
-  "canva-pro",
-  "tai-khoan-claude-ai",
-  "tai-khoan-google-ai-pro",
-  "tai-khoan-cursor-ai",
-  "tai-khoan-perlexity-ai-pro",
-  "tai-khoan-capcut-pro",
-]);
+type Banner = { href: string; src: string; alt: string };
 
-const aiProducts = pickProducts([
-  "tai-khoan-chatgpt-plus",
-  "tai-khoan-kling-ai",
-  "tai-khoan-google-ai-pro",
-  "tai-khoan-cursor-ai",
-  "tai-khoan-perlexity-ai-pro",
-  "tai-khoan-gamma",
-  "tai-khoan-google-ai-ultra",
-  "tai-khoan-invideo-ai",
-  "nang-cap-tai-khoan-heygen-ai",
-  "nang-cap-tai-khoan-krea-ai",
-]);
+function toBanner(block: ApiContentBlock): Banner | null {
+  if (!block.imageUrl) return null;
+  return { href: block.linkUrl ?? "#", src: block.imageUrl, alt: block.title };
+}
 
-const topProducts = pickProducts([
-  "tai-khoan-chatgpt-plus",
-  "tai-khoan-pia-vpn",
-  "canva-pro",
-  "tai-khoan-capcut-pro",
-  "tai-khoan-kling-ai",
-  "tai-khoan-nordvpn",
-  "tai-khoan-surfshark-vpn",
-  "tai-khoan-hma-vpn-premium",
-  "tai-khoan-adobe-creative-cloud",
-  "tai-khoan-vpn-premium",
-]);
+export default async function Home() {
+  const [blocks, settings] = await Promise.all([
+    serverFetch<ApiContentBlock[]>("/content-blocks/home"),
+    serverFetch<PublicSettings>("/settings/public", { revalidate: 300 }),
+  ]);
 
-const studyProducts = pickProducts([
-  "tai-khoan-grammarly-premium",
-  "tai-khoan-chegg-study-pack",
-  "nang-cap-elsa-speak-premium-1-nam",
-  "nang-cap-coursera-plus",
-  "nang-cap-tai-khoan-quizlet-plus",
-  "tai-khoa-hoc-udemy",
-]).filter(Boolean);
+  const banners = (blocks ?? []).map(toBanner).filter((banner): banner is Banner => Boolean(banner));
+  const carousel = banners.slice(0, 3);
+  const megaBanner = banners[3] ?? null;
+  const sideBanners = banners.slice(1, 3);
+  const saleBanner = banners[4] ?? null;
 
-export default function Home() {
-  const products =
-    saleProducts.length >= 8
-      ? saleProducts
-      : generatedContent.products.slice(0, 8);
+  const sections: HomeSection[] = settings?.["home.sections"] ?? [];
+  const live = await fetchProductsBySlugs(sections.flatMap((section) => section.slugs));
+  const resolved = sections
+    .map((section) => ({
+      ...section,
+      products: section.slugs
+        .map((slug) => live.get(slug))
+        .filter((product): product is ApiProduct => Boolean(product)),
+    }))
+    .filter((section) => section.products.length > 0);
+  const [flashSale, ...otherSections] = resolved;
 
   return (
     <main>
-      <section className="bg-[#f5f8fb] pb-0 pt-8 lg:pt-5">
-        <div className="ktk-page-frame">
-          <div className="grid gap-2 lg:grid-cols-2 lg:gap-5">
-            <HeroCarousel
-              slides={[heroBanners.chatgpt, heroBanners.claude, heroBanners.google]}
-            />
+      {carousel.length ? (
+        <section className="bg-[#f5f8fb] pb-0 pt-8 lg:pt-5">
+          <div className="ktk-page-frame">
+            <div className="grid gap-2 lg:grid-cols-2 lg:gap-5">
+              <HeroCarousel slides={carousel} />
 
-            <div className="hidden gap-[14px] lg:grid">
-              <Link
-                href={heroBanners.megaSale.href}
-                className="focus-ring group relative block min-h-[260px] overflow-hidden rounded-[8px] bg-emerald-100"
-              >
-                <Image
-                  src={heroBanners.megaSale.src}
-                  alt={heroBanners.megaSale.alt}
-                  fill
-                  priority
-                  sizes="(min-width: 1024px) 600px, 100vw"
-                  className="object-cover transition duration-300 group-hover:scale-[1.015]"
-                />
-              </Link>
+              {megaBanner || sideBanners.length ? (
+                <div className="hidden gap-[14px] lg:grid">
+                  {megaBanner ? (
+                    <Link
+                      href={megaBanner.href}
+                      className="focus-ring group relative block min-h-[260px] overflow-hidden rounded-[8px] bg-emerald-100"
+                    >
+                      <Image
+                        src={megaBanner.src}
+                        alt={megaBanner.alt}
+                        fill
+                        priority
+                        sizes="(min-width: 1024px) 600px, 100vw"
+                        className="object-cover transition duration-300 group-hover:scale-[1.015]"
+                      />
+                    </Link>
+                  ) : null}
 
-              <div className="grid gap-[10px] sm:grid-cols-2">
-                {[heroBanners.claude, heroBanners.google].map((banner) => (
-                  <Link
-                    key={banner.src}
-                    href={banner.href}
-                    className="focus-ring group relative block min-h-[185px] overflow-hidden rounded-[8px] bg-slate-100"
-                  >
-                    <Image
-                      src={banner.src}
-                      alt={banner.alt}
-                      fill
-                      sizes="(min-width: 1024px) 294px, 100vw"
-                      className="object-cover transition duration-300 group-hover:scale-[1.015]"
-                    />
-                  </Link>
-                ))}
-              </div>
+                  {sideBanners.length ? (
+                    <div className="grid gap-[10px] sm:grid-cols-2">
+                      {sideBanners.map((banner) => (
+                        <Link
+                          key={banner.src}
+                          href={banner.href}
+                          className="focus-ring group relative block min-h-[185px] overflow-hidden rounded-[8px] bg-slate-100"
+                        >
+                          <Image
+                            src={banner.src}
+                            alt={banner.alt}
+                            fill
+                            sizes="(min-width: 1024px) 294px, 100vw"
+                            className="object-cover transition duration-300 group-hover:scale-[1.015]"
+                          />
+                        </Link>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
-      <section className="bg-[#f5f8fb] pb-5 pt-[52px] lg:pt-[53px]">
-        <div className="ktk-sale-frame">
-          <Link
-            href={heroBanners.sale.href}
-            className="focus-ring relative block min-h-[119px] overflow-hidden rounded-[8px] bg-red-600 lg:min-h-[180px]"
-          >
-            <Image
-              src={heroBanners.sale.src}
-              alt={heroBanners.sale.alt}
-              fill
-              sizes="1200px"
-              className="object-cover"
-            />
-          </Link>
-        </div>
-      </section>
-
-      <section className="bg-[#a82a35] pb-8 pt-2 lg:bg-white lg:pt-0">
-        <div className="ktk-wide-mobile-frame">
-          <div className="mb-3 hidden items-center justify-between lg:flex">
-            <div className="inline-flex h-[42px] items-center gap-2 rounded-[4px] bg-[#ef233c] px-4 text-[18px] font-extrabold text-white">
-              <Flame size={20} className="fill-current" aria-hidden="true" />
-              Flash Sale
-            </div>
+      {saleBanner ? (
+        <section className="bg-[#f5f8fb] pb-5 pt-[52px] lg:pt-[53px]">
+          <div className="ktk-sale-frame">
             <Link
-              href="/ung-dung-phan-mem-khac/cong-cu-ai"
-              className="focus-ring inline-flex items-center gap-1 text-[14px] font-extrabold text-primary-strong"
+              href={saleBanner.href}
+              className="focus-ring relative block min-h-[119px] overflow-hidden rounded-[8px] bg-red-600 lg:min-h-[180px]"
             >
-              Xem tất cả
-              <ChevronRight size={17} aria-hidden="true" />
+              <Image src={saleBanner.src} alt={saleBanner.alt} fill sizes="1200px" className="object-cover" />
             </Link>
           </div>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            {products.map((product, index) => (
-              <ProductCard
-                key={product.id}
-                product={toCommerceProduct(product)}
-                priority={index < 4}
-                buttonLabel="Mua ngay"
-              />
-            ))}
+        </section>
+      ) : null}
+
+      {flashSale ? (
+        <section className="bg-[#a82a35] pb-8 pt-2 lg:bg-white lg:pt-0">
+          <div className="ktk-wide-mobile-frame">
+            <div className="mb-3 hidden items-center justify-between lg:flex">
+              <div className="inline-flex h-[42px] items-center gap-2 rounded-[4px] bg-[#ef233c] px-4 text-[18px] font-extrabold text-white">
+                <Flame size={20} className="fill-current" aria-hidden="true" />
+                {flashSale.title}
+              </div>
+              <Link
+                href="/ung-dung-phan-mem-khac/cong-cu-ai"
+                className="focus-ring inline-flex items-center gap-1 text-[14px] font-extrabold text-primary-strong"
+              >
+                Xem tất cả
+                <ChevronRight size={17} aria-hidden="true" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+              {flashSale.products.slice(0, 10).map((product, index) => (
+                <ProductCard
+                  key={product.id}
+                  product={apiProductToCommerce(product)}
+                  priority={index < 4}
+                  buttonLabel="Mua ngay"
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : (
+        <section className="bg-white py-10">
+          <div className="ktk-page-frame rounded-md border border-dashed border-border p-6 text-center text-sm text-muted">
+            Chưa có sản phẩm để hiển thị. Hãy nhập sản phẩm và cấu hình khối trang chủ trong trang quản trị.
+          </div>
+        </section>
+      )}
 
-      <ProductSection
-        title="Công cụ AI 2026"
-        subtitle="Tệp những công cụ AI mới và được mua nhiều nhất"
-        products={aiProducts}
-      />
+      {otherSections.map((section, index) => (
+        <ProductSection
+          key={section.key}
+          title={section.title}
+          subtitle={section.subtitle ?? ""}
+          products={section.products}
+          tone={section.tone ?? "light"}
+          trustStripAfter={index === 1}
+        />
+      ))}
 
-      <ProductSection
-        title="Top tài khoản bán chạy"
-        subtitle="Các gói tài khoản premium được khách hàng chọn nhiều"
-        products={topProducts}
-        tone="green"
-      />
-
-      <TrustStrip />
-
-      <ProductSection
-        title="Tài Khoản Học Tập"
-        subtitle="Ngoại Ngữ · Học Online · Dạy Sách · Tài Khoản Khác"
-        products={studyProducts.length ? studyProducts : generatedContent.products.slice(12, 18)}
-      />
-
+      {otherSections.length < 2 ? <TrustStrip /> : null}
       <NumbersPanel />
       <CustomerReviews />
     </main>
@@ -218,36 +173,43 @@ function ProductSection({
   subtitle,
   products,
   tone = "light",
+  trustStripAfter = false,
 }: {
   title: string;
   subtitle: string;
-  products: GeneratedProduct[];
+  products: ApiProduct[];
   tone?: "light" | "green";
+  trustStripAfter?: boolean;
 }) {
   return (
-    <section
-      className={
-        tone === "green"
-          ? "ktk-green-section py-8 lg:py-10"
-          : "bg-[#f5f5f5] py-8 lg:py-10"
-      }
-    >
-      <div className={tone === "green" ? "ktk-wide-mobile-frame relative z-[1]" : "ktk-wide-mobile-frame"}>
-        <div className="mb-5">
-          <h2 className={tone === "green" ? "ktk-green-section-title text-[22px] font-extrabold text-white" : "text-[22px] font-extrabold text-[#15803d]"}>
-            {title}
-          </h2>
-          <p className={tone === "green" ? "mt-1 text-[13px] font-semibold text-white/85" : "mt-1 text-[13px] text-slate-500"}>
-            {subtitle}
-          </p>
+    <>
+      <section
+        className={
+          tone === "green"
+            ? "ktk-green-section py-8 lg:py-10"
+            : "bg-[#f5f5f5] py-8 lg:py-10"
+        }
+      >
+        <div className={tone === "green" ? "ktk-wide-mobile-frame relative z-[1]" : "ktk-wide-mobile-frame"}>
+          <div className="mb-5">
+            <h2 className={tone === "green" ? "ktk-green-section-title text-[22px] font-extrabold text-white" : "text-[22px] font-extrabold text-[#15803d]"}>
+              {title}
+            </h2>
+            {subtitle ? (
+              <p className={tone === "green" ? "mt-1 text-[13px] font-semibold text-white/85" : "mt-1 text-[13px] text-slate-500"}>
+                {subtitle}
+              </p>
+            ) : null}
+          </div>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+            {products.slice(0, 10).map((product) => (
+              <ProductCard key={product.id} product={apiProductToCommerce(product)} />
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          {products.slice(0, 10).map((product) => (
-            <ProductCard key={product.id} product={toCommerceProduct(product)} />
-          ))}
-        </div>
-      </div>
-    </section>
+      </section>
+      {trustStripAfter ? <TrustStrip /> : null}
+    </>
   );
 }
 
@@ -342,42 +304,4 @@ function CustomerReviews() {
       </div>
     </section>
   );
-}
-
-function pickProducts(paths: string[]) {
-  return paths
-    .map((path) => generatedContent.products.find((product) => product.path === path))
-    .filter((product): product is GeneratedProduct => Boolean(product));
-}
-
-function toCommerceProduct(product: GeneratedProduct): Product {
-  return {
-    id: String(product.id),
-    slug: product.path,
-    name: product.title,
-    shortDescription: replaceBrandText(product.excerpt),
-    categories: [],
-    images: [
-      {
-        src:
-          product.featuredImage ||
-          "https://khotaikhoan.net/wp-content/uploads/2026/08/hypic-pro.webp",
-        alt: product.title,
-      },
-    ],
-    badges: ["Sale"],
-    ratingAverage: 4.9,
-    reviewCount: 100,
-    soldCount: 1000,
-    variants: [
-      {
-        id: `${product.id}-default`,
-        sku: String(product.id),
-        attributes: { accountType: "Tài khoản", duration: "Theo gói" },
-        salePrice: 99000,
-        regularPrice: 199000,
-        stockStatus: "in_stock",
-      },
-    ],
-  };
 }

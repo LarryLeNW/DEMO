@@ -9,7 +9,13 @@ type SortMode = "best" | "price" | "stock" | "rating";
 
 const pageSize = 12;
 
-export function CategoryProductBrowser({ products }: { products: Product[] }) {
+export function CategoryProductBrowser({
+  title,
+  products,
+}: {
+  title: string;
+  products: Product[];
+}) {
   const [sortMode, setSortMode] = useState<SortMode>("best");
   const [page, setPage] = useState(1);
 
@@ -49,7 +55,7 @@ export function CategoryProductBrowser({ products }: { products: Product[] }) {
       <div className="mb-5 flex flex-col gap-3 border-t border-[#e5e7eb] pt-6 md:flex-row md:items-center md:justify-between">
         <div className="flex items-end justify-between gap-4">
           <h1 className="text-[24px] font-extrabold text-slate-950 md:text-[25px]">
-            Công Cụ AI
+            {title}
           </h1>
           <p className="hidden text-sm font-semibold text-slate-700 md:block">
             Xem : {firstIndex} / {lastIndex} / {sortedProducts.length}
@@ -78,11 +84,17 @@ export function CategoryProductBrowser({ products }: { products: Product[] }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5">
-        {visibleProducts.map((product) => (
-          <ProductCard key={product.id} product={product} />
-        ))}
-      </div>
+      {visibleProducts.length ? (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5">
+          {visibleProducts.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      ) : (
+        <p className="rounded-md border border-dashed border-border bg-white p-6 text-center text-sm text-muted">
+          Danh mục này chưa có sản phẩm.
+        </p>
+      )}
 
       {totalPages > 1 ? (
         <div className="mt-6 flex items-center justify-center gap-2">

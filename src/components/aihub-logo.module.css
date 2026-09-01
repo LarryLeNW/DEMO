@@ -1,153 +1,139 @@
 .logo {
-  --logo-cyan: #13d1e7;
-  --logo-cyan-soft: #04a9c5;
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
   gap: 10px;
-  color: white;
   isolation: isolate;
 }
 
 .mark {
-  position: relative;
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  overflow: hidden;
-  border: 1px solid rgb(19 209 231 / 35%);
-  border-radius: 13px;
-  background:
-    radial-gradient(circle at 28% 18%, rgb(61 225 244 / 18%), transparent 38%),
-    linear-gradient(145deg, #0b2630, #07141c 72%);
+  border-radius: 27%;
+  background: linear-gradient(135deg, #2fd36c, #1cae55 55%, #15803d);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 7%),
-    0 8px 22px rgb(4 185 215 / 9%);
-  transition: border-color 170ms ease, box-shadow 170ms ease, transform 170ms ease;
-}
-
-.mark::after {
-  position: absolute;
-  inset: auto -35% -55% 20%;
-  height: 70%;
-  border-radius: 50%;
-  background: rgb(4 185 215 / 13%);
-  filter: blur(10px);
-  content: "";
+    inset 0 0 0 1px rgb(255 255 255 / 16%),
+    0 8px 20px rgb(22 163 74 / 22%);
+  transition: box-shadow 170ms ease, transform 170ms ease;
 }
 
 .logo:hover .mark {
-  border-color: rgb(19 209 231 / 65%);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 9%),
-    0 10px 27px rgb(4 185 215 / 17%);
+    inset 0 0 0 1px rgb(255 255 255 / 16%),
+    0 11px 26px rgb(22 163 74 / 32%);
   transform: translateY(-1px);
 }
 
 .mark svg {
-  position: relative;
-  z-index: 1;
-  width: 78%;
-  height: 78%;
-  overflow: visible;
-}
-
-.frame {
-  stroke: rgb(84 224 240 / 58%);
-  stroke-width: 1.25;
-  stroke-linejoin: round;
-}
-
-.aShape {
-  stroke: #eafcff;
-  stroke-width: 2.3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.circuit {
-  stroke: var(--logo-cyan-soft);
-  stroke-width: 1.25;
-  stroke-linecap: round;
-}
-
-.node {
-  fill: #07141c;
-  stroke: var(--logo-cyan);
-  stroke-width: 1.45;
-}
-
-.coreGlow {
-  fill: rgb(19 209 231 / 16%);
-}
-
-.core {
-  fill: var(--logo-cyan);
-  filter: drop-shadow(0 0 3px rgb(19 209 231 / 85%));
-}
-
-.spark {
-  stroke: var(--logo-cyan);
-  stroke-width: 1.3;
-  stroke-linecap: round;
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .wordmark {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
+  display: grid;
+  gap: 3px;
   white-space: nowrap;
 }
 
 .name {
   display: inline-flex;
-  align-items: baseline;
-  font-size: 19px;
+  align-items: center;
   font-weight: 900;
   letter-spacing: -.035em;
   line-height: 1;
 }
 
 .name > span {
-  color: #f5f8fc;
-}
-
-.name > strong {
-  background: linear-gradient(120deg, #22d7ea, #049bb8);
+  background: linear-gradient(120deg, #2fd36c, #15803d);
   background-clip: text;
   color: transparent;
-  font-weight: inherit;
+}
+
+.tagline {
+  color: #16a34a;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .adminBadge {
+  margin-left: 7px;
   padding: 3px 5px;
-  border: 1px solid rgb(19 209 231 / 18%);
+  border: 1px solid rgb(34 197 94 / 22%);
   border-radius: 4px;
-  background: rgb(19 209 231 / 6%);
-  color: #718398;
+  background: rgb(34 197 94 / 7%);
+  color: #4c9e6d;
   font-size: 6px;
   font-weight: 850;
   letter-spacing: .12em;
   line-height: 1;
 }
 
-.md .mark {
-  width: 43px;
-  height: 43px;
+/* Tone: wordmark text against light vs dark backgrounds (the mark is shared). */
+.light .name > strong {
+  color: #14532d;
 }
 
+.dark .name > strong {
+  color: #f5f8fc;
+}
+
+.dark .name > span {
+  background: linear-gradient(120deg, #4ade80, #1cae55);
+  background-clip: text;
+}
+
+.dark .tagline {
+  color: #86a394;
+}
+
+.dark .mark {
+  box-shadow: 0 8px 20px rgb(34 197 94 / 16%);
+}
+
+/* Sizes */
 .sm .mark {
-  width: 37px;
-  height: 37px;
-  border-radius: 11px;
+  width: 36px;
+  height: 36px;
 }
 
 .sm .name {
-  font-size: 18px;
+  font-size: 17px;
+}
+
+.sm .tagline {
+  font-size: 8px;
 }
 
 .sm .adminBadge {
   font-size: 5.5px;
+}
+
+.md .mark {
+  width: 42px;
+  height: 42px;
+}
+
+.md .name {
+  font-size: 20px;
+}
+
+.md .tagline {
+  font-size: 9px;
+}
+
+.lg .mark {
+  width: 48px;
+  height: 48px;
+}
+
+.lg .name {
+  font-size: 25px;
+}
+
+.lg .tagline {
+  font-size: 11px;
 }
 
 @media (prefers-reduced-motion: reduce) {

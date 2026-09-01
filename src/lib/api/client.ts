@@ -51,6 +51,8 @@ async function request<T>(
 ): Promise<T> {
   const { method = "GET", body, auth = true, headers = {}, signal } = options;
   const tokens = auth ? getTokens() : null;
+  // Multipart bodies (file uploads) go through untouched; the browser sets the boundary header.
+  const isForm = typeof FormData !== "undefined" && body instanceof FormData;
 
   let response: Response;
   try {
@@ -58,11 +60,11 @@ async function request<T>(
       method,
       headers: {
         Accept: "application/json",
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...(body !== undefined && !isForm ? { "Content-Type": "application/json" } : {}),
         ...(tokens ? { Authorization: `Bearer ${tokens.accessToken}` } : {}),
         ...headers,
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: isForm ? body : body !== undefined ? JSON.stringify(body) : undefined,
       signal,
       cache: "no-store",
     });

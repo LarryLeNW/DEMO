@@ -1,38 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AIHUB — storefront + admin (Next.js) và API (NestJS)
 
-## Getting Started
+Cửa hàng tài khoản số: khách xem danh mục/sản phẩm, đặt hàng (chuyển khoản, Zalo hoặc ví AIHUB),
+tra cứu đơn và nhận tài khoản; admin quản lý toàn bộ qua dashboard tại `/admin`.
 
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+DEMO/
+├─ src/                 Next.js 16 (App Router) – storefront + admin
+│  ├─ app/[...slug]/    mọi trang sản phẩm / danh mục / bài viết / trang tĩnh (ISR 60s từ API)
+│  ├─ app/admin/        dashboard + forms (products, categories, promotions, content, settings…)
+│  ├─ components/       header/footer, commerce (giỏ, checkout), auth, orders
+│  └─ lib/api/          client gọi API (catalog, orders, admin, content, settings)
+├─ backend/             NestJS 12 + TypeORM + MySQL – xem backend/README.md
+└─ scripts/             sync-wp-content.mjs (kéo dữ liệu WordPress cũ → JSON để importer đọc)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Chạy local
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# 1. API (MySQL `aihub` trên localhost:3306, xem backend/.env)
+cd backend && npm install && npm run start:dev      # http://localhost:4000/api, Swagger /docs
+npm run import:wp                                    # (lần đầu) nạp danh mục/sản phẩm/bài viết từ WP
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# 2. Storefront + admin
+npm install && npm run dev                           # http://localhost:3000  (.env: NEXT_PUBLIC_API_URL)
+```
 
-## Learn More
+Tài khoản admin mặc định: `admin@aihub.local` / `Admin@12345` (đổi trong `backend/.env`).
 
-To learn more about Next.js, take a look at the following resources:
+## Luồng chính
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Mua hàng**: thẻ/trang sản phẩm → giỏ (localStorage) → `POST /orders` → hướng dẫn chuyển khoản →
+  admin xác nhận & giao (tự động từ kho hoặc thủ công) → khách xem tại `/kiem-tra-don-hang`.
+- **Admin**: overview thống kê, thông báo, 13 module đọc/ghi API; mỗi sản phẩm có nhiều gói với
+  **giá gốc** (`regularPrice`) và **giá bán** (`price`), kho theo từng suất tài khoản.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Kiểm tra
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-"# DEMO" 
-# DEMO
+```bash
+npx tsc --noEmit && npx eslint src          # frontend
+cd backend && npm run lint && npm run test:e2e   # API (chạy trên MySQL local)
+```

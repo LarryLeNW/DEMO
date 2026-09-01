@@ -1,48 +1,52 @@
 import Link from "next/link";
 import { CategoryProductBrowser } from "@/components/wp/category-product-browser";
 import { ContentBody } from "@/components/wp/content-body";
+import type { ApiCategory } from "@/lib/api/catalog";
 import { replaceBrandText } from "@/lib/brand";
-import type { GeneratedCategory } from "@/lib/wp-content";
-import { getProductsForCategory } from "@/lib/wp-content";
 import type { Product } from "@/types/commerce";
 
 type CategoryTemplateProps = {
-  category: GeneratedCategory;
+  category: ApiCategory;
+  parent: ApiCategory | null;
+  products: Product[];
 };
 
-export function CategoryTemplate({ category }: CategoryTemplateProps) {
-  const products = getProductsForCategory(category);
-  const { introHtml, articleHtml } = splitCategoryHtml(category.contentHtml);
+export function CategoryTemplate({ category, parent, products }: CategoryTemplateProps) {
+  const { introHtml, articleHtml } = splitCategoryHtml(category.contentHtml ?? "");
 
   return (
     <main className="bg-[#f5f5f5]">
       <section className="bg-white py-5">
         <div className="ktk-category-frame">
-        <div className="mb-3 flex flex-col gap-2 text-[16px] text-slate-500 lg:flex-row lg:items-center lg:justify-between">
-          <nav className="overflow-hidden whitespace-nowrap">
-            <Link href="/">Trang chủ</Link>
-            <span className="mx-2 text-slate-300">/</span>
-            <Link href="/ung-dung-phan-mem-khac">Ứng dụng & Phần mềm khác</Link>
-            <span className="mx-2 text-slate-300">/</span>
-            <strong className="text-slate-950">{category.title}</strong>
-          </nav>
-          <p className="hidden text-[16px] text-slate-950 lg:block">
-            Hiển thị 1-12 của {products.length} kết quả
-          </p>
-        </div>
-
-        {introHtml ? (
-          <ContentBody html={introHtml} />
-        ) : (
-          <div className="wp-content">
-            <h1>{category.title}</h1>
-            <p>{replaceBrandText(category.excerpt)}</p>
+          <div className="mb-3 flex flex-col gap-2 text-[16px] text-slate-500 lg:flex-row lg:items-center lg:justify-between">
+            <nav className="overflow-hidden whitespace-nowrap">
+              <Link href="/">Trang chủ</Link>
+              {parent ? (
+                <>
+                  <span className="mx-2 text-slate-300">/</span>
+                  <Link href={`/${parent.path}`}>{parent.name}</Link>
+                </>
+              ) : null}
+              <span className="mx-2 text-slate-300">/</span>
+              <strong className="text-slate-950">{category.name}</strong>
+            </nav>
+            <p className="hidden text-[16px] text-slate-950 lg:block">
+              {products.length} sản phẩm
+            </p>
           </div>
-        )}
+
+          {introHtml ? (
+            <ContentBody html={introHtml} />
+          ) : (
+            <div className="wp-content">
+              <h1>{category.name}</h1>
+              {category.description ? <p>{replaceBrandText(category.description)}</p> : null}
+            </div>
+          )}
         </div>
       </section>
 
-      <CategoryProductBrowser products={products.map((product) => toCommerceProduct(product))} />
+      <CategoryProductBrowser title={category.name} products={products} />
 
       {articleHtml ? (
         <section className="ktk-category-frame pb-10">
@@ -53,46 +57,28 @@ export function CategoryTemplate({ category }: CategoryTemplateProps) {
   );
 }
 
+/**
+ * Splits the category copy at the first <h2> so products sit between intro and article.
+ * The cut can land inside a wrapper <div>; rebalance the tags so both halves are valid HTML
+ * (otherwise the browser repairs them differently from React and hydration fails).
+ */
 function splitCategoryHtml(html: string) {
   const splitAt = html.indexOf("<h2");
   if (splitAt === -1) {
     return { introHtml: html, articleHtml: "" };
   }
 
-  return {
-    introHtml: html.slice(0, splitAt),
-    articleHtml: html.slice(splitAt),
-  };
-}
+  let introHtml = html.slice(0, splitAt);
+  let articleHtml = html.slice(splitAt);
+  const openDivs = (introHtml.match(/<div\b/gi) ?? []).length - (introHtml.match(/<\/div>/gi) ?? []).length;
 
-function toCommerceProduct(product: ReturnType<typeof getProductsForCategory>[number]): Product {
-  return {
-    id: String(product.id),
-    slug: product.path,
-    name: product.title,
-    shortDescription: replaceBrandText(product.excerpt),
-    categories: [],
-    images: [
-      {
-        src:
-          product.featuredImage ||
-          "https://khotaikhoan.net/wp-content/uploads/2026/08/hypic-pro.webp",
-        alt: product.title,
-      },
-    ],
-    badges: ["Sale"],
-    ratingAverage: 4.8,
-    reviewCount: 100,
-    soldCount: 1000 + (product.id % 700),
-    variants: [
-      {
-        id: `${product.id}-default`,
-        sku: `${product.id}`,
-        attributes: { accountType: "Gói mặc định", duration: "1 tháng" },
-        salePrice: 99000 + (product.id % 6) * 50000,
-        regularPrice: 299000 + (product.id % 8) * 70000,
-        stockStatus: "in_stock",
-      },
-    ],
-  };
+  for (let index = 0; index < openDivs; index += 1) {
+    introHtml += "</div>";
+    const lastClose = articleHtml.lastIndexOf("</div>");
+    if (lastClose !== -1) {
+      articleHtml = articleHtml.slice(0, lastClose) + articleHtml.slice(lastClose + "</div>".length);
+    }
+  }
+
+  return { introHtml, articleHtml };
 }

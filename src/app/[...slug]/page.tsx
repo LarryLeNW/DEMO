@@ -5,88 +5,147 @@ import { ArticleTemplate } from "@/components/wp/article-template";
 import { BlogTemplate } from "@/components/wp/blog-template";
 import { CategoryTemplate } from "@/components/wp/category-template";
 import { ProductTemplate } from "@/components/wp/product-template";
+import { buildQuery, type ApiCategory, type ApiProduct, type Paginated } from "@/lib/api/catalog";
+import { toContentDoc, type ApiPage, type ApiPost } from "@/lib/api/content";
+import { serverFetch } from "@/lib/api/server";
 import { replaceBrandText } from "@/lib/brand";
-import {
-  generatedContent,
-  getGeneratedRoute,
-  isGeneratedCategory,
-  isGeneratedProduct,
-  normalizePath,
-} from "@/lib/wp-content";
+import { getZaloContact } from "@/lib/zalo-contact";
+import { apiProductToCommerce } from "@/lib/commerce-mapping";
 
-export const dynamicParams = false;
+/** Every catalog/content URL is served from the API with 60s ISR; new products/posts need no deploy. */
+export const revalidate = 60;
+export const dynamicParams = true;
 
 export function generateStaticParams() {
-  return generatedContent.routes.map((route) => ({
-    slug: route.path.split("/"),
-  }));
+  return [];
 }
 
-export async function generateMetadata(
-  props: PageProps<"/[...slug]">,
-): Promise<Metadata> {
+type Resolved =
+  | { kind: "product"; product: ApiProduct }
+  | { kind: "category"; category: ApiCategory }
+  | { kind: "post"; post: ApiPost }
+  | { kind: "page"; page: ApiPage }
+  | null;
+
+function normalizePath(slug: string[]) {
+  return slug.filter(Boolean).join("/").replace(/^\/|\/$/g, "");
+}
+
+async function resolve(path: string): Promise<Resolved> {
+  const segments = path.split("/");
+  const single = segments.length === 1 ? segments[0] : null;
+
+  const [product, category, post, page] = await Promise.all([
+    single ? serverFetch<ApiProduct>(`/products/${encodeURIComponent(single)}`) : null,
+    serverFetch<ApiCategory>(`/categories/lookup${buildQuery({ path })}`),
+    single ? serverFetch<ApiPost>(`/posts/${encodeURIComponent(single)}`) : null,
+    single ? serverFetch<ApiPage>(`/pages/${encodeURIComponent(single)}`) : null,
+  ]);
+
+  if (product) return { kind: "product", product };
+  if (category && category.path === path) return { kind: "category", category };
+  if (post) return { kind: "post", post };
+  if (page) return { kind: "page", page };
+  if (category) return { kind: "category", category };
+  return null;
+}
+
+async function fetchParentCategory(path: string) {
+  const parentPath = path.split("/").slice(0, -1).join("/");
+  return parentPath ? serverFetch<ApiCategory>(`/categories/lookup${buildQuery({ path: parentPath })}`) : null;
+}
+
+export async function generateMetadata(props: PageProps<"/[...slug]">): Promise<Metadata> {
   const params = await props.params;
-  const page = getGeneratedRoute(normalizePath(params.slug));
+  const resolved = await resolve(normalizePath(params.slug));
+  if (!resolved) return {};
 
-  if (!page) {
-    return {};
+  switch (resolved.kind) {
+    case "product":
+      return {
+        title: resolved.product.name,
+        description: replaceBrandText(resolved.product.shortDescription ?? ""),
+        openGraph: {
+          title: resolved.product.name,
+          images: resolved.product.featuredImage ? [resolved.product.featuredImage] : undefined,
+        },
+      };
+    case "category":
+      return {
+        title: resolved.category.name,
+        description: replaceBrandText(resolved.category.description ?? ""),
+      };
+    case "post":
+      return {
+        title: resolved.post.title,
+        description: replaceBrandText(resolved.post.excerpt ?? ""),
+        openGraph: { images: resolved.post.featuredImage ? [resolved.post.featuredImage] : undefined },
+      };
+    case "page":
+      return {
+        title: resolved.page.slug === "gioi-thieu" ? "Giới thiệu AIHUB" : resolved.page.title,
+        description: replaceBrandText(resolved.page.excerpt ?? ""),
+      };
   }
-
-  if (page.path === "blog") {
-    return {
-      title: "Blog Hướng Dẫn & Review",
-      description:
-        "Hướng dẫn sử dụng, so sánh và cập nhật những công cụ số đáng chú ý để bạn chọn đúng tài khoản và dùng hiệu quả hơn.",
-    };
-  }
-
-  if (page.path === "gioi-thieu") {
-    return {
-      title: "Giới thiệu AIHUB",
-      description:
-        "AIHUB cung cấp tài khoản số, công cụ AI và phần mềm bản quyền với quy trình mua hàng rõ ràng, dễ nhận hàng và có hỗ trợ sau bán.",
-      openGraph: {
-        title: "Giới thiệu AIHUB",
-        description:
-          "Tìm hiểu cách AIHUB vận hành đơn hàng, giao tài khoản và hỗ trợ khách hàng sau khi mua.",
-      },
-    };
-  }
-
-  return {
-    title: replaceBrandText(page.title),
-    description: replaceBrandText(page.excerpt),
-    openGraph: {
-      title: replaceBrandText(page.title),
-      description: replaceBrandText(page.excerpt),
-      images: page.featuredImage ? [page.featuredImage] : undefined,
-    },
-  };
 }
 
 export default async function CatchAllPage(props: PageProps<"/[...slug]">) {
-  const params = await props.params;
-  const page = getGeneratedRoute(normalizePath(params.slug));
+  const [params, searchParams] = await Promise.all([props.params, props.searchParams]);
+  const path = normalizePath(params.slug);
+  const resolved = await resolve(path);
 
-  if (!page) {
+  if (!resolved) {
     notFound();
   }
 
-  if (isGeneratedProduct(page)) {
-    return <ProductTemplate product={page} />;
+  switch (resolved.kind) {
+    case "product": {
+      const categoryPath = resolved.product.categories[0]?.path;
+      const [parentCategory, zaloContact] = await Promise.all([
+        categoryPath ? fetchParentCategory(categoryPath) : null,
+        getZaloContact(),
+      ]);
+      return (
+        <ProductTemplate product={resolved.product} parentCategory={parentCategory} zaloContact={zaloContact} />
+      );
+    }
+    case "category": {
+      const [products, parent] = await Promise.all([
+        serverFetch<Paginated<ApiProduct>>(
+          `/products${buildQuery({ category: resolved.category.path, limit: 100, sort: "featured" })}`,
+        ),
+        fetchParentCategory(resolved.category.path),
+      ]);
+      return (
+        <CategoryTemplate
+          category={resolved.category}
+          parent={parent}
+          products={(products?.items ?? []).map(apiProductToCommerce)}
+        />
+      );
+    }
+    case "post": {
+      const latest = await serverFetch<Paginated<ApiPost>>(`/posts${buildQuery({ limit: 5 })}`);
+      return <ArticleTemplate page={toContentDoc(resolved.post)} latestPosts={latest?.items ?? []} />;
+    }
+    case "page": {
+      if (resolved.page.slug === "blog") {
+        const pageNumber = Math.max(1, Number(searchParams?.page ?? 1) || 1);
+        const posts = await serverFetch<Paginated<ApiPost>>(
+          `/posts${buildQuery({ page: pageNumber, limit: 13 })}`,
+        );
+        return (
+          <BlogTemplate
+            page={toContentDoc(resolved.page)}
+            posts={posts ?? { items: [], total: 0, page: 1, limit: 13, totalPages: 1 }}
+          />
+        );
+      }
+      if (resolved.page.slug === "gioi-thieu" || resolved.page.template === "about") {
+        return <AboutTemplate page={toContentDoc(resolved.page)} />;
+      }
+      const latest = await serverFetch<Paginated<ApiPost>>(`/posts${buildQuery({ limit: 5 })}`);
+      return <ArticleTemplate page={toContentDoc(resolved.page)} latestPosts={latest?.items ?? []} />;
+    }
   }
-
-  if (isGeneratedCategory(page)) {
-    return <CategoryTemplate category={page} />;
-  }
-
-  if (page.path === "blog") {
-    return <BlogTemplate page={page} />;
-  }
-
-  if (page.path === "gioi-thieu") {
-    return <AboutTemplate page={page} />;
-  }
-
-  return <ArticleTemplate page={page} />;
 }

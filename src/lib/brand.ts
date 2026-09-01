@@ -3,10 +3,11 @@ export const contactPhone = "0931729316";
 export const contactPhoneDisplay = "0931 729 316";
 export const contactEmail = "larrylenw@gmail.com";
 
+// (?!\.net) keeps khotaikhoan.net URLs intact — image/link domains must not be rebranded.
 const brandPatterns = [
-  /Kho\s*Tài\s*Khoản/gi,
-  /Kho\s*Tai\s*Khoan/gi,
-  /KhoTaiKhoan/g,
+  /Kho\s*Tài\s*Khoản(?!\.net)/gi,
+  /Kho\s*Tai\s*Khoan(?!\.net)/gi,
+  /KhoTaiKhoan(?!\.net)/g,
 ];
 
 const contactPatterns = [

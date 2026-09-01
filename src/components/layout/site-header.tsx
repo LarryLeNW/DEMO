@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type FormEvent,
@@ -15,27 +14,50 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Bot,
   Gamepad2,
+  ChevronDown,
+  ChevronRight,
   GraduationCap,
   Headphones,
   Heart,
+  Home,
   Laptop,
   Menu,
   Search,
   ShieldCheck,
   ShoppingCart,
+  Tags,
   UserRound,
   Wrench,
+  X,
+  type LucideIcon,
 } from "lucide-react";
+import { AIHubLogo } from "@/components/aihub-logo";
 import { useCommerce } from "@/components/commerce/commerce-provider";
-import { generatedContent } from "@/lib/wp-content";
+import { catalogApi, type ApiCategory, type ApiProduct } from "@/lib/api/catalog";
+import { phoneHref, type PublicSettings } from "@/lib/api/settings";
 import { formatCurrency } from "@/lib/format";
 
 const zaloUrl =
-  "https://khotaikhoan.net/wp-content/uploads/2024/12/Icon_of_Zalo.svg-2-35x35.png";
-const contactPhone = "0931729316";
-const contactPhoneDisplay = "0931 729 316";
+  "/icons/zalo.png";
 
-const navLinks = [
+/** lucide icon names stored on categories (see backend importer) -> components. */
+const categoryIcons: Record<string, LucideIcon> = {
+  Bot,
+  GraduationCap,
+  Laptop,
+  Headphones,
+  ShieldCheck,
+  Wrench,
+  Gamepad2,
+  Tags,
+};
+
+const navLinks: { href: string; label: string; iconSrc?: string; icon?: LucideIcon }[] = [
+  {
+    href: "/",
+    label: "Trang chủ",
+    icon: Home,
+  },
   {
     href: "/gioi-thieu",
     label: "Giới Thiệu",
@@ -43,7 +65,7 @@ const navLinks = [
   },
   {
     href: "/huong-dan-mua-hang",
-    label: "Hướng dẫn mua hàng",
+    label: "Hướng dẫn",
     iconSrc: "https://khotaikhoan.net/wp-content/uploads/2025/10/Icon-ktk-02.png",
   },
   {
@@ -53,22 +75,31 @@ const navLinks = [
   },
 ];
 
-const categoryMenuItems = [
-  { href: "/ung-dung-phan-mem-khac/cong-cu-ai", label: "Công cụ AI", icon: Bot },
-  { href: "/hoc-tap", label: "Học Tập", icon: GraduationCap },
-  { href: "/lam-viec", label: "Làm Việc", icon: Laptop },
-  { href: "/giai-tri", label: "Giải Trí", icon: Headphones },
-  { href: "/vpn", label: "VPN", icon: ShieldCheck },
-  { href: "/luu-tru", label: "Lưu Trữ", icon: Wrench },
-  { href: "/anti-virus", label: "Anti Virus", icon: ShieldCheck },
-  { href: "/ung-dung-phan-mem-khac", label: "Phần Mềm Khác", icon: Gamepad2 },
-];
+type SiteHeaderProps = {
+  categories: ApiCategory[];
+  settings: PublicSettings;
+};
 
-export function SiteHeader() {
+export function SiteHeader({ categories, settings }: SiteHeaderProps) {
   const commerce = useCommerce();
   const pathname = usePathname();
+  const hotline = settings["store.hotline"] ?? "0931 729 316";
+  const categoryMenuItems = categories
+    .filter((category) => category.parentId === null)
+    .map((category) => ({
+      href: `/${category.path}`,
+      label: category.name,
+      icon: (category.icon && categoryIcons[category.icon]) || Tags,
+      children: (category.children ?? []).map((child) => ({ href: `/${child.path}`, label: child.name })),
+    }));
   const [menuOpen, setMenuOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
+  /** Root category whose children are shown in the desktop flyout (hover/focus). */
+  const [flyout, setFlyout] = useState<string | null>(null);
+  /** Vertical offset (px) of the hovered root row inside the dropdown – the flyout aligns to it. */
+  const [flyoutTop, setFlyoutTop] = useState(0);
+  /** Root category expanded in the mobile drawer. */
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [isHeaderHidden, setIsHeaderHidden] = useState(false);
   const lastScrollY = useRef(0);
   const categoryRef = useRef<HTMLDivElement>(null);
@@ -76,6 +107,7 @@ export function SiteHeader() {
   const activeCategoryHref = categoryMenuItems
     .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+  const flyoutItem = categoryOpen ? categoryMenuItems.find((item) => item.href === flyout && item.children.length > 0) ?? null : null;
 
   const clearCategoryTimer = useCallback(() => {
     if (categoryCloseTimer.current !== null) {
@@ -195,13 +227,12 @@ export function SiteHeader() {
             >
               <Menu size={24} aria-hidden="true" />
             </button>
-            <Link
-              href="/"
-              aria-label="AIHUB"
-              className="focus-ring absolute left-1/2 top-1/2 flex h-[48px] w-[214px] -translate-x-1/2 -translate-y-1/2 items-center justify-center"
-            >
-              <BrandLogo compact />
-            </Link>
+            <AIHubLogo
+              size="sm"
+              name={settings["store.name"] ?? "AIHUB"}
+              tagline={settings["store.tagline"] ?? "Tài khoản số giá tốt"}
+              className="focus-ring absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+            />
             <button
               className="focus-ring grid size-10 place-items-center text-slate-950"
               type="button"
@@ -218,14 +249,13 @@ export function SiteHeader() {
         </div>
 
         <div className="hidden lg:block">
-          <div className="ktk-page-frame flex h-[80px] items-center gap-7">
-            <Link
-              href="/"
-              aria-label="AIHUB"
-              className="focus-ring flex h-[58px] w-[214px] shrink-0 items-center"
-            >
-              <BrandLogo />
-            </Link>
+          <div className="mx-auto flex h-[80px] max-w-[1222px] items-center gap-7 px-[15px]">
+            <AIHubLogo
+              size="lg"
+              name={settings["store.name"] ?? "AIHUB"}
+              tagline={settings["store.tagline"] ?? "Tài khoản số giá tốt"}
+              className="focus-ring w-53.5 shrink-0"
+            />
 
             <SearchBox />
 
@@ -233,9 +263,9 @@ export function SiteHeader() {
               <Image src={zaloUrl} alt="Zalo" width={38} height={38} />
               <a
                 className="whitespace-nowrap text-[15px] font-extrabold text-slate-950"
-                href={`tel:${contactPhone}`}
+                href={phoneHref(hotline)}
               >
-                {contactPhoneDisplay}
+                {hotline}
               </a>
             </div>
           </div>
@@ -279,14 +309,17 @@ export function SiteHeader() {
                     {categoryMenuItems.map((item, index) => {
                       const Icon = item.icon;
                       const active = item.href === activeCategoryHref;
+                      const hasChildren = item.children.length > 0;
 
                       return (
                         <Link
                           key={item.href}
                           href={item.href}
                           aria-current={active ? "page" : undefined}
+                          aria-haspopup={hasChildren ? "true" : undefined}
+                          aria-expanded={hasChildren ? flyoutItem?.href === item.href : undefined}
                           className={`group flex h-[48px] items-center gap-3.5 px-5 text-[15px] font-bold transition-[opacity,translate,background-color,color] duration-200 ease-out hover:bg-[#f0faf4] hover:text-[#15803d] ${
-                            active ? "bg-[#f0faf4] text-[#15803d]" : "text-slate-950"
+                            active || flyoutItem?.href === item.href ? "bg-[#f0faf4] text-[#15803d]" : "text-slate-950"
                           } ${
                             categoryOpen
                               ? "translate-y-0 opacity-100"
@@ -296,6 +329,8 @@ export function SiteHeader() {
                             transitionDelay: categoryOpen ? `${index * 22}ms` : "0ms",
                           }}
                           tabIndex={categoryOpen ? undefined : -1}
+                          onMouseEnter={(event) => { setFlyout(item.href); setFlyoutTop(event.currentTarget.offsetTop); }}
+                          onFocus={(event) => { setFlyout(item.href); setFlyoutTop(event.currentTarget.offsetTop); }}
                           onClick={() => closeCategory()}
                         >
                           <Icon
@@ -307,12 +342,51 @@ export function SiteHeader() {
                             }
                             aria-hidden="true"
                           />
-                          <span>{item.label}</span>
+                          <span className="flex-1">{item.label}</span>
+                          {hasChildren ? (
+                            <ChevronRight size={16} className="shrink-0 text-slate-400 transition-colors group-hover:text-[#15803d]" aria-hidden="true" />
+                          ) : null}
                         </Link>
                       );
                     })}
                   </div>
+
+                  {/* Second level: children of the hovered/focused root category. */}
+                  {flyoutItem ? (
+                    <div
+                      className="absolute left-[274px] z-50 w-[300px] rounded-r-[10px] rounded-bl-[10px] border border-l-0 border-[#e5e7eb] bg-white py-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.14)]"
+                      style={{ top: `calc(100% + ${flyoutTop}px)` }}
+                      role="group"
+                      aria-label={`Danh mục con của ${flyoutItem.label}`}
+                      onMouseEnter={openCategory}
+                    >
+                      <Link
+                        href={flyoutItem.href}
+                        className="flex items-center justify-between gap-3 px-5 py-2.5 text-[13px] font-extrabold uppercase tracking-wide text-[#15803d] hover:underline"
+                        onClick={() => closeCategory()}
+                      >
+                        <span className="truncate">{flyoutItem.label}</span>
+                        <span className="shrink-0 text-[11px] font-bold normal-case tracking-normal text-slate-500">Xem tất cả</span>
+                      </Link>
+                      {flyoutItem.children.map((child) => {
+                        const childActive = pathname === child.href || pathname.startsWith(`${child.href}/`);
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            aria-current={childActive ? "page" : undefined}
+                            className={`flex min-h-[42px] items-center gap-2.5 px-5 py-2 text-[14px] font-semibold leading-snug transition-colors hover:bg-[#f0faf4] hover:text-[#15803d] ${childActive ? "bg-[#f0faf4] text-[#15803d]" : "text-slate-800"}`}
+                            onClick={() => closeCategory()}
+                          >
+                            <ChevronRight size={14} className="shrink-0 text-slate-400" aria-hidden="true" />
+                            <span>{child.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ) : null}
                 </div>
+                <nav className="flex h-full items-center" aria-label="Liên kết nhanh">
                 {navLinks.map((link) => {
                   const active =
                     pathname === link.href || pathname.startsWith(`${link.href}/`);
@@ -323,26 +397,31 @@ export function SiteHeader() {
                     aria-current={active ? "page" : undefined}
                     className={
                       active
-                        ? "focus-ring group inline-flex h-[40px] items-center gap-2 px-[10px] text-[14px] font-bold text-[#15803d] transition"
-                        : "focus-ring group inline-flex h-[40px] items-center gap-2 px-[10px] text-[14px] font-bold text-slate-700 transition hover:text-[#15803d]"
+                        ? "focus-ring group inline-flex h-[40px] items-center gap-2 px-2.75 text-[14px] font-bold text-[#15803d] transition"
+                        : "focus-ring group inline-flex h-[40px] items-center gap-2 px-2.75 text-[14px] font-bold text-slate-700 transition hover:text-[#15803d]"
                     }
                   >
-                    <Image
-                      src={link.iconSrc}
-                      alt=""
-                      width={28}
-                      height={28}
-                      sizes="28px"
-                      className={
-                        active
-                          ? "ktk-nav-img-active size-7 shrink-0 object-contain"
-                          : "ktk-nav-img-inactive size-7 shrink-0 object-contain"
-                      }
-                    />
+                    {link.icon ? (
+                      <link.icon size={23} className="shrink-0" aria-hidden="true" />
+                    ) : link.iconSrc ? (
+                      <Image
+                        src={link.iconSrc}
+                        alt=""
+                        width={28}
+                        height={28}
+                        sizes="28px"
+                        className={
+                          active
+                            ? "ktk-nav-img-active size-7 shrink-0 object-contain"
+                            : "ktk-nav-img-inactive size-7 shrink-0 object-contain"
+                        }
+                      />
+                    ) : null}
                     {link.label}
                   </Link>
                   );
                 })}
+                </nav>
               </div>
 
               <div className="flex items-center gap-2">
@@ -389,28 +468,58 @@ export function SiteHeader() {
               {categoryMenuItems.map((item) => {
                 const Icon = item.icon;
                 const active = item.href === activeCategoryHref;
+                const isExpanded = expanded === item.href;
 
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={active ? "page" : undefined}
-                    className={`group flex h-[50px] items-center gap-3 border-b border-[#e5e7eb] px-5 text-[16px] font-bold transition hover:text-[#15803d] ${
-                      active ? "text-[#15803d]" : "text-slate-950"
-                    }`}
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    <Icon
-                      size={24}
-                      className={
-                        active
-                          ? "text-[#15803d]"
-                          : "text-slate-950 transition group-hover:text-[#15803d]"
-                      }
-                      aria-hidden="true"
-                    />
-                    <span>{item.label}</span>
-                  </Link>
+                  <div key={item.href} className="border-b border-[#e5e7eb]">
+                    <div className="flex items-stretch">
+                      <Link
+                        href={item.href}
+                        aria-current={active ? "page" : undefined}
+                        className={`group flex h-[50px] min-w-0 flex-1 items-center gap-3 px-5 text-[16px] font-bold transition hover:text-[#15803d] ${
+                          active ? "text-[#15803d]" : "text-slate-950"
+                        }`}
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        <Icon
+                          size={24}
+                          className={
+                            active
+                              ? "text-[#15803d]"
+                              : "shrink-0 text-slate-950 transition group-hover:text-[#15803d]"
+                          }
+                          aria-hidden="true"
+                        />
+                        <span className="truncate">{item.label}</span>
+                      </Link>
+                      {item.children.length ? (
+                        <button
+                          type="button"
+                          className="grid w-[50px] shrink-0 place-items-center border-l border-[#eef2f6] text-slate-500 transition hover:text-[#15803d]"
+                          aria-expanded={isExpanded}
+                          aria-label={`${isExpanded ? "Thu gọn" : "Mở"} danh mục con của ${item.label}`}
+                          onClick={() => setExpanded(isExpanded ? null : item.href)}
+                        >
+                          <ChevronDown size={18} className={`transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} aria-hidden="true" />
+                        </button>
+                      ) : null}
+                    </div>
+                    {isExpanded ? (
+                      <div className="bg-[#f8fbf9] py-1">
+                        {item.children.map((child) => (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            className="flex min-h-[42px] items-center gap-2 py-2 pl-[52px] pr-5 text-[14px] font-semibold leading-snug text-slate-700 transition hover:text-[#15803d]"
+                            onClick={() => setMenuOpen(false)}
+                          >
+                            <ChevronRight size={14} className="shrink-0 text-slate-400" aria-hidden="true" />
+                            <span>{child.label}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>
@@ -418,43 +527,6 @@ export function SiteHeader() {
         </div>
       ) : null}
     </>
-  );
-}
-
-function BrandLogo({ compact = false }: { compact?: boolean }) {
-  return (
-    <div className="flex h-full items-center gap-2.5 text-[#15803d]">
-      <span
-        className={
-          compact
-            ? "grid size-9 shrink-0 place-items-center rounded-[10px] bg-[#16a34a] text-[15px] font-black text-white shadow-[0_8px_18px_rgba(22,163,74,0.22)]"
-            : "grid size-11 shrink-0 place-items-center rounded-[12px] bg-[#16a34a] text-[17px] font-black text-white shadow-[0_10px_22px_rgba(22,163,74,0.22)]"
-        }
-        aria-hidden="true"
-      >
-        AI
-      </span>
-      <span className="min-w-0 leading-none">
-        <span
-          className={
-            compact
-              ? "block text-[22px] font-black text-[#14532d]"
-              : "block text-[28px] font-black text-[#14532d]"
-          }
-        >
-          AIHUB
-        </span>
-        <span
-          className={
-            compact
-              ? "mt-1 block text-[9px] font-bold text-[#16a34a]"
-              : "mt-1 block text-[11px] font-bold text-[#16a34a]"
-          }
-        >
-          Tài khoản số giá tốt
-        </span>
-      </span>
-    </div>
   );
 }
 
@@ -497,14 +569,31 @@ function SearchBox({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
-  const products = generatedContent.products;
-  const suggestions = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-    if (keyword.length < 2) return [];
-    return products
-      .filter((product) => `${product.title} ${product.path}`.toLowerCase().includes(keyword))
-      .slice(0, 6);
-  }, [products, query]);
+  const [suggestions, setSuggestions] = useState<ApiProduct[]>([]);
+
+  // Debounced lookup against the API; short queries clear the list.
+  useEffect(() => {
+    const keyword = query.trim();
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      if (keyword.length < 2) {
+        setSuggestions([]);
+        return;
+      }
+      catalogApi
+        .listProducts({ search: keyword, limit: 6 })
+        .then((page) => {
+          if (!cancelled) setSuggestions(page.items);
+        })
+        .catch(() => {
+          if (!cancelled) setSuggestions([]);
+        });
+    }, keyword.length < 2 ? 0 : 200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [query]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -550,24 +639,40 @@ function SearchBox({ compact = false }: { compact?: boolean }) {
         onFocus={() => setFocused(true)}
         onBlur={() => window.setTimeout(() => setFocused(false), 120)}
       />
+      {query ? (
+        <button
+          className={
+            compact
+              ? "grid size-8 shrink-0 place-items-center text-slate-400 transition hover:text-slate-600"
+              : "mr-2 grid size-8 shrink-0 place-items-center text-slate-400 transition hover:text-slate-600"
+          }
+          type="button"
+          aria-label="Xóa từ khóa tìm kiếm"
+          title="Xóa từ khóa"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => setQuery("")}
+        >
+          <X size={17} aria-hidden="true" />
+        </button>
+      ) : null}
       {focused && suggestions.length ? (
         <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-md border border-border bg-white shadow-xl">
           {suggestions.map((product) => (
             <Link
               key={product.id}
-              href={`/${product.path}`}
+              href={`/${product.slug}`}
               className="flex items-center gap-3 border-b border-border px-3 py-2 last:border-b-0 hover:bg-surface-muted"
             >
               {product.featuredImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={product.featuredImage}
-                  alt={product.title}
+                  alt={product.name}
                   className="size-10 rounded-md object-cover"
                 />
               ) : null}
               <span className="line-clamp-2 text-sm font-bold text-slate-800">
-                {product.title}
+                {product.name}
               </span>
             </Link>
           ))}
