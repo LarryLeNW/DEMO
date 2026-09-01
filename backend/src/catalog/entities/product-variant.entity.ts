@@ -1,5 +1,6 @@
 import {
   Column,
+  DeleteDateColumn,
   Entity,
   Index,
   JoinColumn,
@@ -21,6 +22,10 @@ import { Product } from './product.entity.js';
 @Entity({ name: 'product_variants' })
 @Index(['productId', 'sortOrder'])
 export class ProductVariant extends TimestampedEntity {
+  /** Xóa mềm – bản ghi đã xóa bị ẩn khỏi mọi truy vấn nhưng vẫn còn trong DB. */
+  @DeleteDateColumn({ name: 'deleted_at', type: 'datetime', nullable: true })
+  deletedAt: Date | null;
+
   @Column({ name: 'product_id', type: 'int' })
   productId: number;
 
@@ -64,7 +69,7 @@ export class ProductVariant extends TimestampedEntity {
   @Column(moneyColumn({ name: 'regular_price', nullable: true, default: null }))
   regularPrice: number | null;
 
-  /** Purchase cost for margin reports. */
+  /** Purchase (import) price for margin reports — shown as "Giá nhập" in the admin. */
   @Column(moneyColumn({ name: 'cost_price', nullable: true, default: null }))
   costPrice: number | null;
 

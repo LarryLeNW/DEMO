@@ -58,7 +58,7 @@ export class CategoriesService {
       where: [{ path: normalized }, { slug: normalized }],
     });
     if (!category) {
-      throw new NotFoundException('Category not found');
+      throw new NotFoundException('Không tìm thấy danh mục');
     }
     return category;
   }
@@ -66,7 +66,7 @@ export class CategoriesService {
   async findById(id: number) {
     const category = await this.categories.findOneBy({ id });
     if (!category) {
-      throw new NotFoundException(`Category #${id} not found`);
+      throw new NotFoundException(`Không tìm thấy danh mục #${id}`);
     }
     return category;
   }
@@ -99,6 +99,7 @@ export class CategoriesService {
     const slug = dto.slug ?? slugify(dto.name);
     const path = parent ? `${parent.path}/${slug}` : slug;
     await this.assertPathFree(path);
+    await this.assertSlugFree(slug);
 
     const category = this.categories.create({
       ...dto,
@@ -120,13 +121,13 @@ export class CategoriesService {
 
     if (dto.parentId !== undefined && dto.parentId !== category.parentId) {
       if (dto.parentId === id) {
-        throw new ConflictException('A category cannot be its own parent');
+        throw new ConflictException('Danh mục không thể là cha của chính nó');
       }
       if (dto.parentId) {
         const descendants = await this.collectDescendantIds(id);
         if (descendants.includes(dto.parentId)) {
           throw new ConflictException(
-            'Cannot move a category under its own descendant',
+            'Không thể chuyển danh mục vào trong danh mục con của nó',
           );
         }
       }
@@ -140,6 +141,9 @@ export class CategoriesService {
 
     if (path !== category.path) {
       await this.assertPathFree(path, id);
+    }
+    if (slug !== category.slug) {
+      await this.assertSlugFree(slug, id);
     }
 
     Object.assign(category, dto, { slug, path, parentId: parent?.id ?? null });
@@ -155,15 +159,30 @@ export class CategoriesService {
     const category = await this.findById(id);
     const childCount = await this.categories.countBy({ parentId: id });
     if (childCount > 0) {
-      throw new ConflictException('Move or delete child categories first');
+      throw new ConflictException('Vui lòng chuyển hoặc xóa các danh mục con trước');
     }
-    await this.categories.remove(category);
+    await this.categories.softDelete({ id });
   }
 
   private async assertPathFree(path: string, exceptId?: number) {
-    const existing = await this.categories.findOneBy({ path });
+    const existing = await this.categories.findOne({ where: { path }, withDeleted: true });
     if (existing && existing.id !== exceptId) {
-      throw new ConflictException(`Category path "${path}" already exists`);
+      throw new ConflictException(
+        existing.deletedAt
+          ? `Đường dẫn "${path}" thuộc một danh mục đã xóa mềm, vui lòng chọn slug khác`
+          : `Đường dẫn "${path}" đã tồn tại, vui lòng chọn slug khác`,
+      );
+    }
+  }
+
+  private async assertSlugFree(slug: string, exceptId?: number) {
+    const existing = await this.categories.findOne({ where: { slug }, withDeleted: true });
+    if (existing && existing.id !== exceptId) {
+      throw new ConflictException(
+        existing.deletedAt
+          ? `Slug "${slug}" thuộc một danh mục đã xóa mềm, vui lòng chọn slug khác`
+          : `Slug "${slug}" đã được dùng cho danh mục "${existing.name}", vui lòng chọn slug khác`,
+      );
     }
   }
 

@@ -132,17 +132,17 @@ export class PromotionsService {
   async findById(id: number) {
     const promotion = await this.promotions.findOneBy({ id });
     if (!promotion) {
-      throw new NotFoundException(`Promotion #${id} not found`);
+      throw new NotFoundException(`Không tìm thấy khuyến mãi #${id}`);
     }
     return promotion;
   }
 
   async create(dto: CreatePromotionDto, createdById: number) {
-    if (await this.promotions.existsBy({ code: dto.code })) {
-      throw new ConflictException(`Code "${dto.code}" already exists`);
+    if (await this.promotions.exists({ where: { code: dto.code }, withDeleted: true })) {
+      throw new ConflictException(`Mã "${dto.code}" đã tồn tại`);
     }
     if (dto.type === PromotionType.Percent && dto.value > 100) {
-      throw new BadRequestException('Percent value must be 0-100');
+      throw new BadRequestException('Giá trị phần trăm phải trong khoảng 0-100');
     }
     return this.promotions.save(
       this.promotions.create({
@@ -165,8 +165,8 @@ export class PromotionsService {
   async update(id: number, dto: UpdatePromotionDto) {
     const promotion = await this.findById(id);
     if (dto.code && dto.code !== promotion.code) {
-      if (await this.promotions.existsBy({ code: dto.code })) {
-        throw new ConflictException(`Code "${dto.code}" already exists`);
+      if (await this.promotions.exists({ where: { code: dto.code }, withDeleted: true })) {
+        throw new ConflictException(`Mã "${dto.code}" đã tồn tại`);
       }
     }
     const { startsAt, endsAt, ...rest } = dto;
@@ -188,6 +188,6 @@ export class PromotionsService {
       await this.promotions.save(promotion);
       return;
     }
-    await this.promotions.remove(promotion);
+    await this.promotions.softDelete({ id });
   }
 }

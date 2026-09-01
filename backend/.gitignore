@@ -16,3 +16,6 @@
 *.log
 .DS_Store
 *.tsbuildinfo
+
+# uploaded media
+/uploads

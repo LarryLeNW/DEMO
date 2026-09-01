@@ -1,5 +1,6 @@
 import {
   Column,
+  DeleteDateColumn,
   Entity,
   Index,
   JoinColumn,
@@ -18,6 +19,10 @@ import { Product } from './product.entity.js';
 @Entity({ name: 'categories' })
 @Index(['parentId', 'sortOrder'])
 export class Category extends TimestampedEntity {
+  /** Xóa mềm – bản ghi đã xóa bị ẩn khỏi mọi truy vấn nhưng vẫn còn trong DB. */
+  @DeleteDateColumn({ name: 'deleted_at', type: 'datetime', nullable: true })
+  deletedAt: Date | null;
+
   @Column({ type: 'varchar', length: 150 })
   name: string;
 

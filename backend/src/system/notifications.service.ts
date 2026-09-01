@@ -58,7 +58,7 @@ export class NotificationsService {
   async markRead(id: number) {
     const notification = await this.notifications.findOneBy({ id });
     if (!notification) {
-      throw new NotFoundException(`Notification #${id} not found`);
+      throw new NotFoundException(`Không tìm thấy thông báo #${id}`);
     }
     if (!notification.readAt) {
       notification.readAt = new Date();

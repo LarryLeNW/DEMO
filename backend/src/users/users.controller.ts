@@ -45,7 +45,7 @@ export class UsersController {
     @CurrentUser() actor: User,
   ) {
     if (actor.id === id && dto.role !== Role.Admin) {
-      throw new ForbiddenException('You cannot remove your own admin role');
+      throw new ForbiddenException('Bạn không thể tự gỡ quyền quản trị của mình');
     }
     return this.usersService.updateRole(id, dto.role);
   }
@@ -58,7 +58,7 @@ export class UsersController {
     @CurrentUser() actor: User,
   ) {
     if (actor.id === id && !dto.isActive) {
-      throw new ForbiddenException('You cannot lock your own account');
+      throw new ForbiddenException('Bạn không thể tự khóa tài khoản của mình');
     }
     return this.usersService.updateStatus(id, dto.isActive);
   }

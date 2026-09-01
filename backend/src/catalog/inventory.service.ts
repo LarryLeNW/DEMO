@@ -33,7 +33,7 @@ export class InventoryService {
   ) {
     const variant = await this.variants.findOneBy({ id: variantId });
     if (!variant) {
-      throw new NotFoundException(`Variant #${variantId} not found`);
+      throw new NotFoundException(`Không tìm thấy gói sản phẩm #${variantId}`);
     }
 
     return this.items.manager.transaction(async (manager) => {
@@ -170,10 +170,10 @@ export class InventoryService {
   async revokeItem(itemId: number, actorId: number, note?: string) {
     const item = await this.items.findOneBy({ id: itemId });
     if (!item) {
-      throw new NotFoundException(`Inventory item #${itemId} not found`);
+      throw new NotFoundException(`Không tìm thấy mục kho #${itemId}`);
     }
     if (item.status !== InventoryItemStatus.Available) {
-      throw new ConflictException('Only available units can be revoked');
+      throw new ConflictException('Chỉ thu hồi được các mục kho đang sẵn sàng');
     }
     return this.items.manager.transaction(async (manager) => {
       item.status = InventoryItemStatus.Revoked;

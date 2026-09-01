@@ -1,5 +1,6 @@
 import {
   Column,
+  DeleteDateColumn,
   Entity,
   Index,
   JoinColumn,
@@ -21,6 +22,10 @@ import { PromotionUsage } from './promotion-usage.entity.js';
 @Entity({ name: 'promotions' })
 @Index(['status', 'endsAt'])
 export class Promotion extends TimestampedEntity {
+  /** Xóa mềm – bản ghi đã xóa bị ẩn khỏi mọi truy vấn nhưng vẫn còn trong DB. */
+  @DeleteDateColumn({ name: 'deleted_at', type: 'datetime', nullable: true })
+  deletedAt: Date | null;
+
   /** Campaign name, e.g. "Khách hàng mới". */
   @Column({ type: 'varchar', length: 150 })
   name: string;

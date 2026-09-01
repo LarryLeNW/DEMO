@@ -240,7 +240,7 @@ export class SettingsService implements OnApplicationBootstrap {
     const existing = await this.settings.findOneBy({ key });
     if (!existing && !input.group) {
       throw new NotFoundException(
-        `Setting "${key}" does not exist; pass "group" to create it`,
+        `Cấu hình "${key}" chưa tồn tại; truyền "group" để tạo mới`,
       );
     }
     const setting =

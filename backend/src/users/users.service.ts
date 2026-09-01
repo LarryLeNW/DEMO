@@ -53,7 +53,7 @@ export class UsersService {
 
   findById(id: number) {
     return this.users.findOneByOrFail({ id }).catch(() => {
-      throw new NotFoundException(`User #${id} not found`);
+      throw new NotFoundException(`Không tìm thấy người dùng #${id}`);
     });
   }
 

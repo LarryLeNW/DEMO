@@ -26,7 +26,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       .catch(() => null);
 
     if (!user || !user.isActive) {
-      throw new UnauthorizedException('Account is locked or no longer exists');
+      throw new UnauthorizedException('Tài khoản đã bị khóa hoặc không còn tồn tại');
     }
 
     return user;

@@ -45,7 +45,7 @@ export class ReportsService {
       where: { id },
       relations: { createdBy: true },
     });
-    if (!report) throw new NotFoundException(`Report #${id} not found`);
+    if (!report) throw new NotFoundException(`Không tìm thấy báo cáo #${id}`);
     return report;
   }
 
@@ -59,7 +59,7 @@ export class ReportsService {
     createdById: number,
   ) {
     if (!(input.kind in REPORT_KINDS)) {
-      throw new BadRequestException(`Unknown report kind "${input.kind}"`);
+      throw new BadRequestException(`Loại báo cáo "${input.kind}" không hợp lệ`);
     }
     const start = new Date(input.periodStart);
     const end = new Date(input.periodEnd);
@@ -68,7 +68,7 @@ export class ReportsService {
       Number.isNaN(end.getTime()) ||
       start > end
     ) {
-      throw new BadRequestException('Invalid period');
+      throw new BadRequestException('Khoảng thời gian không hợp lệ');
     }
 
     const report = await this.reports.save(

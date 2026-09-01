@@ -270,7 +270,7 @@ export class WalletsService {
     return this.dataSource.transaction(async (manager) => {
       const request = await manager.findOneBy(FundRequest, { id });
       if (!request)
-        throw new NotFoundException(`Fund request #${id} not found`);
+        throw new NotFoundException(`Không tìm thấy yêu cầu #${id}`);
       if (
         request.status !== FundRequestStatus.Pending &&
         request.status !== FundRequestStatus.Processing
@@ -304,7 +304,7 @@ export class WalletsService {
 
   async rejectFundRequest(id: number, reviewerId: number, reason: string) {
     const request = await this.fundRequests.findOneBy({ id });
-    if (!request) throw new NotFoundException(`Fund request #${id} not found`);
+    if (!request) throw new NotFoundException(`Không tìm thấy yêu cầu #${id}`);
     if (request.status === FundRequestStatus.Completed) {
       throw new ConflictException('Yêu cầu đã hoàn tất, không thể từ chối');
     }

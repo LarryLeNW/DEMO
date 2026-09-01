@@ -147,7 +147,7 @@ export class ProductsService {
       order: { variants: { sortOrder: 'ASC' }, images: { sortOrder: 'ASC' } },
     });
     if (!product) {
-      throw new NotFoundException('Product not found');
+      throw new NotFoundException('Không tìm thấy sản phẩm');
     }
     product.variants = product.variants.filter((variant) => variant.isEnabled);
     return product;
@@ -205,7 +205,7 @@ export class ProductsService {
       order: { variants: { sortOrder: 'ASC' }, images: { sortOrder: 'ASC' } },
     });
     if (!product) {
-      throw new NotFoundException(`Product #${id} not found`);
+      throw new NotFoundException(`Không tìm thấy sản phẩm #${id}`);
     }
     const stock = await this.stockByVariant(
       product.variants.map((variant) => variant.id),
@@ -279,7 +279,7 @@ export class ProductsService {
       relations: { categories: true },
     });
     if (!product) {
-      throw new NotFoundException(`Product #${id} not found`);
+      throw new NotFoundException(`Không tìm thấy sản phẩm #${id}`);
     }
 
     if (dto.slug && dto.slug !== product.slug) {
@@ -333,7 +333,7 @@ export class ProductsService {
   async addVariant(productId: number, dto: CreateVariantDto) {
     const product = await this.products.findOneBy({ id: productId });
     if (!product) {
-      throw new NotFoundException(`Product #${productId} not found`);
+      throw new NotFoundException(`Không tìm thấy sản phẩm #${productId}`);
     }
     const count = await this.variants.countBy({ productId });
     if (dto.sku) {
@@ -361,10 +361,10 @@ export class ProductsService {
     });
     if (delivered > 0) {
       throw new ConflictException(
-        'Variant has delivered stock; disable it instead of deleting',
+        'Gói đã có kho bàn giao cho khách; hãy ẩn gói thay vì xóa',
       );
     }
-    await this.variants.remove(variant);
+    await this.variants.softDelete({ id: variantId });
   }
 
   async findVariant(variantId: number) {
@@ -373,7 +373,7 @@ export class ProductsService {
       relations: { product: true },
     });
     if (!variant) {
-      throw new NotFoundException(`Variant #${variantId} not found`);
+      throw new NotFoundException(`Không tìm thấy gói sản phẩm #${variantId}`);
     }
     return variant;
   }
@@ -445,7 +445,7 @@ export class ProductsService {
     if (!ids?.length) return [];
     const categories = await this.categories.findBy({ id: In(ids) });
     if (categories.length !== new Set(ids).size) {
-      throw new NotFoundException('One or more categories do not exist');
+      throw new NotFoundException('Một hoặc nhiều danh mục không tồn tại');
     }
     return categories;
   }
@@ -456,14 +456,17 @@ export class ProductsService {
       withDeleted: true,
     });
     if (existing && existing.id !== exceptId) {
-      throw new ConflictException(`Product slug "${slug}" already exists`);
+      throw new ConflictException(`Slug sản phẩm "${slug}" đã tồn tại`);
     }
   }
 
   private async assertSkuFree(sku: string, exceptId?: number) {
-    const existing = await this.variants.findOneBy({ sku });
+    const existing = await this.variants.findOne({
+      where: { sku },
+      withDeleted: true,
+    });
     if (existing && existing.id !== exceptId) {
-      throw new ConflictException(`SKU "${sku}" already exists`);
+      throw new ConflictException(`SKU "${sku}" đã tồn tại`);
     }
   }
 }

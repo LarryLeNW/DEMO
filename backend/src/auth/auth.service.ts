@@ -31,7 +31,7 @@ export class AuthService {
 
   async register(dto: RegisterDto): Promise<AuthResult> {
     if (await this.usersService.existsByEmail(dto.email)) {
-      throw new ConflictException('Email is already registered');
+      throw new ConflictException('Email này đã được đăng ký');
     }
 
     const user = await this.usersService.create({
@@ -51,11 +51,11 @@ export class AuthService {
 
     // Same error for unknown email / wrong password so accounts cannot be enumerated.
     if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException('Account is locked');
+      throw new UnauthorizedException('Tài khoản đã bị khóa');
     }
 
     const tokens = await this.issueTokens(user);
@@ -68,13 +68,13 @@ export class AuthService {
     const user = await this.usersService.findByIdWithSecrets(userId);
 
     if (!user || !user.isActive || !user.refreshTokenHash) {
-      throw new UnauthorizedException('Session expired, please log in again');
+      throw new UnauthorizedException('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
     }
 
     if (!this.refreshTokenMatches(refreshToken, user.refreshTokenHash)) {
       // Token reuse (e.g. stolen + already rotated): revoke the whole session.
       await this.usersService.updateRefreshTokenHash(user.id, null);
-      throw new UnauthorizedException('Refresh token is no longer valid');
+      throw new UnauthorizedException('Phiên đăng nhập không còn hợp lệ, vui lòng đăng nhập lại');
     }
 
     return this.issueTokens(user);
@@ -91,7 +91,7 @@ export class AuthService {
       !user ||
       !(await bcrypt.compare(dto.currentPassword, user.passwordHash))
     ) {
-      throw new UnauthorizedException('Current password is incorrect');
+      throw new UnauthorizedException('Mật khẩu hiện tại không đúng');
     }
 
     await this.usersService.updatePassword(

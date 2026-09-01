@@ -90,6 +90,16 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsString()
   ADMIN_NAME?: string;
+
+  /** Public base URL used to build links to uploaded files (defaults to http://localhost:PORT). */
+  @IsOptional()
+  @IsString()
+  PUBLIC_URL?: string;
+
+  /** Folder for uploaded media, relative to the backend working directory. */
+  @IsOptional()
+  @IsString()
+  UPLOAD_DIR?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

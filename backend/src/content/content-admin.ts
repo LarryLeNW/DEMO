@@ -214,7 +214,7 @@ export class ContentAdminService implements OnApplicationBootstrap {
 
   async updateBlock(id: number, dto: UpdateContentBlockDto, userId: number) {
     const block = await this.blocks.findOneBy({ id });
-    if (!block) throw new NotFoundException(`Content block #${id} not found`);
+    if (!block) throw new NotFoundException(`Không tìm thấy khối nội dung #${id}`);
     const { startsAt, endsAt, ...rest } = dto;
     Object.assign(block, rest, {
       ...(startsAt !== undefined
@@ -232,8 +232,8 @@ export class ContentAdminService implements OnApplicationBootstrap {
 
   async removeBlock(id: number) {
     const block = await this.blocks.findOneBy({ id });
-    if (!block) throw new NotFoundException(`Content block #${id} not found`);
-    await this.blocks.remove(block);
+    if (!block) throw new NotFoundException(`Không tìm thấy khối nội dung #${id}`);
+    await this.blocks.softDelete({ id });
   }
 
   async listPosts(query: QueryContentDto) {
@@ -282,7 +282,7 @@ export class ContentAdminService implements OnApplicationBootstrap {
 
   async setPostStatus(id: number, status: PublishStatus) {
     const post = await this.posts.findOneBy({ id });
-    if (!post) throw new NotFoundException(`Post #${id} not found`);
+    if (!post) throw new NotFoundException(`Không tìm thấy bài viết #${id}`);
     post.status = status;
     if (status === PublishStatus.Published && !post.publishedAt)
       post.publishedAt = new Date();
@@ -291,7 +291,7 @@ export class ContentAdminService implements OnApplicationBootstrap {
 
   async setPageStatus(id: number, status: PublishStatus, userId: number) {
     const page = await this.pages.findOneBy({ id });
-    if (!page) throw new NotFoundException(`Page #${id} not found`);
+    if (!page) throw new NotFoundException(`Không tìm thấy trang #${id}`);
     page.status = status;
     page.updatedById = userId;
     if (status === PublishStatus.Published && !page.publishedAt)

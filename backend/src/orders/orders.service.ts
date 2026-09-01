@@ -383,7 +383,7 @@ export class OrdersService {
       relations: { ...ORDER_RELATIONS, user: true },
     });
     if (!order) {
-      throw new NotFoundException(`Order #${id} not found`);
+      throw new NotFoundException(`Không tìm thấy đơn hàng #${id}`);
     }
     return order;
   }
@@ -605,7 +605,7 @@ export class OrdersService {
       .where('order.id = :id', { id })
       .getOne();
     if (!order) {
-      throw new NotFoundException(`Order #${id} not found`);
+      throw new NotFoundException(`Không tìm thấy đơn hàng #${id}`);
     }
     return order;
   }

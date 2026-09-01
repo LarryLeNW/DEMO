@@ -1,5 +1,6 @@
 import {
   Column,
+  DeleteDateColumn,
   Entity,
   Index,
   JoinColumn,
@@ -21,6 +22,10 @@ import {
 @Entity({ name: 'content_blocks' })
 @Index(['placement', 'status', 'sortOrder'])
 export class ContentBlock extends TimestampedEntity {
+  /** Xóa mềm – bản ghi đã xóa bị ẩn khỏi mọi truy vấn nhưng vẫn còn trong DB. */
+  @DeleteDateColumn({ name: 'deleted_at', type: 'datetime', nullable: true })
+  deletedAt: Date | null;
+
   @Column({ type: 'varchar', length: 255 })
   title: string;
 

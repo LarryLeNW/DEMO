@@ -102,7 +102,7 @@ export class ContentService {
       where: { slug, status: PublishStatus.Published },
       relations: { categories: true },
     });
-    if (!post) throw new NotFoundException('Post not found');
+    if (!post) throw new NotFoundException('Không tìm thấy bài viết');
     const words = (post.contentHtml ?? '')
       .replace(/<[^>]+>/g, ' ')
       .split(/\s+/)
@@ -115,7 +115,7 @@ export class ContentService {
       slug,
       status: PublishStatus.Published,
     });
-    if (!page) throw new NotFoundException('Page not found');
+    if (!page) throw new NotFoundException('Không tìm thấy trang');
     return page;
   }
 

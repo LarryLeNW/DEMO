@@ -71,7 +71,7 @@ export class ReviewsService {
 
   async setStatus(id: number, status: ReviewStatus) {
     const review = await this.reviews.findOneBy({ id });
-    if (!review) throw new NotFoundException(`Review #${id} not found`);
+    if (!review) throw new NotFoundException(`Không tìm thấy đánh giá #${id}`);
     review.status = status;
     await this.reviews.save(review);
     await this.recomputeProductRating(review.productId);
@@ -103,7 +103,7 @@ export class ReviewsService {
       slug,
       status: ProductStatus.Active,
     });
-    if (!product) throw new NotFoundException('Product not found');
+    if (!product) throw new NotFoundException('Không tìm thấy sản phẩm');
     return product;
   }
 }

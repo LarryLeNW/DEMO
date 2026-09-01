@@ -17,6 +17,7 @@ export type AdminStats = {
   ordersByStatus: Record<string, number>;
   lowStock: {
     variantId: number;
+    productId: number;
     sku: string;
     productName: string;
     available: number;
@@ -84,12 +85,13 @@ export class StatsService {
     );
     const lowStock = await q<{
       variantId: number;
+      productId: number;
       sku: string;
       productName: string;
       available: string;
       threshold: number;
     }>(
-      `SELECT v.id variantId, v.sku, p.name productName, p.low_stock_threshold threshold,
+      `SELECT v.id variantId, p.id productId, v.sku, p.name productName, p.low_stock_threshold threshold,
               (SELECT COUNT(*) FROM inventory_items i WHERE i.variant_id = v.id AND i.status='available') available
        FROM product_variants v INNER JOIN products p ON p.id = v.product_id
        WHERE v.delivery_type='auto' AND v.is_enabled = 1 AND p.deleted_at IS NULL AND p.status='active'

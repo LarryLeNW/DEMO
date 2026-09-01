@@ -59,7 +59,11 @@ function replaceBrandText(value: string) {
       /support@khotaikhoan\.net|khotaikhoan\.net@gmail\.com/g,
       CONTACT_EMAIL,
     )
-    .replace(/Kho\s*Tài\s*Khoản|Kho\s*Tai\s*Khoan|KhoTaiKhoan/gi, BRAND_NAME);
+    // (?!\.net) keeps khotaikhoan.net URLs intact — image/link domains must not be rebranded.
+    .replace(
+      /(?:Kho\s*Tài\s*Khoản|Kho\s*Tai\s*Khoan|KhoTaiKhoan)(?!\.net)/gi,
+      BRAND_NAME,
+    );
 }
 
 /** lucide icon per top-level category slug (mirrors the header menu on the client). */

@@ -202,7 +202,7 @@ export class SupportService {
 
   async findMine(userId: number, id: number) {
     const ticket = await this.findById(id);
-    if (ticket.userId !== userId) throw new ForbiddenException();
+    if (ticket.userId !== userId) throw new ForbiddenException('Bạn không có quyền thao tác trên phiếu hỗ trợ này');
     ticket.messages = ticket.messages.filter((message) => !message.isInternal);
     return ticket;
   }
@@ -218,7 +218,7 @@ export class SupportService {
       },
       order: { messages: { id: 'ASC' } },
     });
-    if (!ticket) throw new NotFoundException(`Ticket #${id} not found`);
+    if (!ticket) throw new NotFoundException(`Không tìm thấy phiếu hỗ trợ #${id}`);
     return ticket;
   }
 
@@ -249,7 +249,7 @@ export class SupportService {
     asStaff: boolean,
   ) {
     const ticket = await this.findById(ticketId);
-    if (!asStaff && ticket.userId !== author.id) throw new ForbiddenException();
+    if (!asStaff && ticket.userId !== author.id) throw new ForbiddenException('Bạn không có quyền thao tác trên phiếu hỗ trợ này');
 
     await this.messages.save(
       this.messages.create({

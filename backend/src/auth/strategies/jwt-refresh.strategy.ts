@@ -28,7 +28,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
       ?.refreshToken;
 
     if (typeof refreshToken !== 'string' || !refreshToken) {
-      throw new UnauthorizedException('Refresh token missing');
+      throw new UnauthorizedException('Thiếu refresh token');
     }
 
     return { ...payload, refreshToken };
