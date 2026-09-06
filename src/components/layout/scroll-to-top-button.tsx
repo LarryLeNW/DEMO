@@ -39,7 +39,7 @@ export function ScrollToTopButton() {
       aria-label="Lên đầu trang"
       title="Lên đầu trang"
       onClick={scrollToTop}
-      className={`focus-ring fixed bottom-[calc(84px+env(safe-area-inset-bottom))] right-4 z-50 grid size-11 place-items-center rounded-full bg-slate-950 text-white shadow-[0_8px_24px_rgba(15,23,42,0.24)] transition-all duration-200 lg:bottom-24 lg:right-6 ${
+      className={`focus-ring fixed bottom-[calc(84px+env(safe-area-inset-bottom))] right-4 z-50 grid size-11 place-items-center rounded-full bg-[#16a34a] text-white shadow-[0_8px_24px_rgba(22,163,74,0.28)] transition-all duration-200 hover:bg-[#15803d] lg:bottom-36 lg:right-6 ${
         visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-3 opacity-0"
       }`}
     >
