@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
 import { AboutTemplate } from "@/components/wp/about-template";
 import { ArticleTemplate } from "@/components/wp/article-template";
-import { BlogTemplate } from "@/components/wp/blog-template";
 import { CategoryTemplate } from "@/components/wp/category-template";
 import { ProductTemplate } from "@/components/wp/product-template";
 import { buildQuery, type ApiCategory, type ApiProduct, type Paginated } from "@/lib/api/catalog";
@@ -54,27 +52,6 @@ async function resolve(path: string): Promise<Resolved> {
 async function fetchParentCategory(path: string) {
   const parentPath = path.split("/").slice(0, -1).join("/");
   return parentPath ? serverFetch<ApiCategory>(`/categories/lookup${buildQuery({ path: parentPath })}`) : null;
-}
-
-async function BlogPage({
-  page,
-  searchParams,
-}: {
-  page: ApiPage;
-  searchParams: PageProps<"/[...slug]">["searchParams"];
-}) {
-  const params = await searchParams;
-  const pageNumber = Math.max(1, Number(params?.page ?? 1) || 1);
-  const posts = await serverFetch<Paginated<ApiPost>>(
-    `/posts${buildQuery({ page: pageNumber, limit: 13 })}`,
-  );
-
-  return (
-    <BlogTemplate
-      page={toContentDoc(page)}
-      posts={posts ?? { items: [], total: 0, page: 1, limit: 13, totalPages: 1 }}
-    />
-  );
 }
 
 export async function generateMetadata(props: PageProps<"/[...slug]">): Promise<Metadata> {
@@ -151,13 +128,6 @@ export default async function CatchAllPage(props: PageProps<"/[...slug]">) {
       return <ArticleTemplate page={toContentDoc(resolved.post)} latestPosts={latest?.items ?? []} />;
     }
     case "page": {
-      if (resolved.page.slug === "blog") {
-        return (
-          <Suspense fallback={<main className="min-h-[50vh] bg-white" />}>
-            <BlogPage page={resolved.page} searchParams={props.searchParams} />
-          </Suspense>
-        );
-      }
       if (resolved.page.slug === "gioi-thieu" || resolved.page.template === "about") {
         return <AboutTemplate page={toContentDoc(resolved.page)} />;
       }
