@@ -90,7 +90,7 @@ export async function generateMetadata(props: PageProps<"/[...slug]">): Promise<
 }
 
 export default async function CatchAllPage(props: PageProps<"/[...slug]">) {
-  const [params, searchParams] = await Promise.all([props.params, props.searchParams]);
+  const params = await props.params;
   const path = normalizePath(params.slug);
   const resolved = await resolve(path);
 
@@ -130,6 +130,7 @@ export default async function CatchAllPage(props: PageProps<"/[...slug]">) {
     }
     case "page": {
       if (resolved.page.slug === "blog") {
+        const searchParams = await props.searchParams;
         const pageNumber = Math.max(1, Number(searchParams?.page ?? 1) || 1);
         const posts = await serverFetch<Paginated<ApiPost>>(
           `/posts${buildQuery({ page: pageNumber, limit: 13 })}`,
