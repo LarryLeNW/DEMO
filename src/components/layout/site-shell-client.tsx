@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { FloatingContactBar } from "@/components/layout/floating-contact-bar";
 import { IntroSplash } from "@/components/layout/intro-splash";
+import { ScrollToTopButton } from "@/components/layout/scroll-to-top-button";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import type { ApiCategory } from "@/lib/api/catalog";
@@ -34,6 +35,7 @@ export function SiteShellClient({ children, categories, settings }: SiteShellCli
       <div className="flex-1">{children}</div>
       <SiteFooter categories={categories} settings={settings} />
       <FloatingContactBar settings={settings} />
+      <ScrollToTopButton />
     </div>
   );
 }
