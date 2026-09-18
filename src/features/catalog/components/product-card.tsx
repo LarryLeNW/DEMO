@@ -24,6 +24,7 @@ export function ProductCard({
   const defaultVariant = cheapestVariant(product);
   const isWishlisted = commerce.isWishlisted(product.slug);
   const canBuy = Boolean(defaultVariant.apiVariantId) && defaultVariant.stockStatus !== "out_of_stock";
+  const isBuyNow = buttonLabel.toLowerCase() === "mua ngay";
 
   const snapshot = {
     id: product.id,
@@ -102,13 +103,14 @@ export function ProductCard({
           className="focus-ring inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-[6px] bg-[#ecfdf5] px-3 text-[12px] font-extrabold text-[#15803d] transition hover:bg-[#dcfce7] disabled:cursor-not-allowed disabled:opacity-60"
           type="button"
           disabled={!canBuy}
-          onClick={() =>
+          onClick={() => {
             commerce.addToCart(snapshot, {
               variantId: defaultVariant.apiVariantId,
               variantLabel: defaultVariant.attributes.accountType,
               durationLabel: defaultVariant.attributes.duration || undefined,
-            })
-          }
+            });
+            if (isBuyNow) commerce.openCheckout();
+          }}
         >
           <ShoppingCart size={14} aria-hidden="true" />
           {canBuy ? buttonLabel : "Hết hàng"}

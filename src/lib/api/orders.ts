@@ -79,7 +79,7 @@ export type ApiOrder = {
 };
 
 export type CreateOrderInput = {
-  customer: { name: string; phone: string; email: string };
+  customer?: { name: string; phone: string; email: string };
   items: { variantId: number; quantity: number }[];
   paymentMethod: PaymentMethod;
   note?: string;

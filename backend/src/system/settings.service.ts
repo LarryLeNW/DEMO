@@ -68,8 +68,8 @@ export const DEFAULT_SETTINGS: SettingSeed[] = [
     key: 'payment.bank',
     group: SettingGroup.Payment,
     value: {
-      bankName: 'ACB',
-      accountNumber: '0000000000',
+      bankName: 'VCB',
+      accountNumber: '1017164832',
       accountName: 'AIHUB',
     },
     description:

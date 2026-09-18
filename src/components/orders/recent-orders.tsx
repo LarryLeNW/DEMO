@@ -8,15 +8,25 @@ import { timeAgo } from "@/lib/dates";
 import { formatCurrency } from "@/lib/format";
 import { ordersApi, type ApiOrder } from "@/lib/api/orders";
 
-/** Latest orders of the signed-in user, shown in the account drawer. */
-export function RecentOrders({ email, onNavigate }: { email: string; onNavigate?: () => void }) {
+/** Latest orders of the signed-in user, shown in the account drawer or account page. */
+export function RecentOrders({
+  email,
+  onNavigate,
+  limit = 5,
+  title = "Đơn hàng gần đây",
+}: {
+  email: string;
+  onNavigate?: () => void;
+  limit?: number;
+  title?: string;
+}) {
   const [orders, setOrders] = useState<ApiOrder[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     ordersApi
-      .listMine({ limit: 5 })
+      .listMine({ limit })
       .then((page) => {
         if (active) setOrders(page.items);
       })
@@ -26,12 +36,12 @@ export function RecentOrders({ email, onNavigate }: { email: string; onNavigate?
     return () => {
       active = false;
     };
-  }, []);
+  }, [limit]);
 
   return (
     <section className="mt-5">
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-[13px] font-extrabold uppercase text-slate-700">Đơn hàng gần đây</h3>
+        <h3 className="text-[13px] font-extrabold uppercase text-slate-700">{title}</h3>
         <Link
           href="/kiem-tra-don-hang"
           className="focus-ring text-[12px] font-bold text-primary-strong"

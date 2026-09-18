@@ -49,7 +49,6 @@ import { formatCurrency } from "@/lib/format";
 import { CategoryForm } from "./forms/category-form";
 import { ContentBlockForm } from "./forms/content-block-form";
 import { CustomerDetail } from "./forms/customer-detail";
-import { FundRequestDetail } from "./forms/fund-request-detail";
 import { useDialogBehavior } from "./forms/modal";
 import { OrderDetail } from "./forms/order-detail";
 import { ProductEditor } from "./forms/product-editor";
@@ -105,7 +104,6 @@ const navGroups: { label: string; items: { id: ModuleId; label: string; icon: Lu
     label: "Tài chính",
     items: [
       { id: "transactions", label: "Giao dịch", icon: WalletCards },
-      { id: "deposits", label: "Nạp & rút tiền", icon: CircleDollarSign, badge: "deposits" },
     ],
   },
   {
@@ -197,19 +195,6 @@ const moduleDefinitions: Record<ModuleSection, ModuleDefinition> = {
       { key: "method", label: "Phương thức" },
       { key: "status", label: "Trạng thái" },
       { key: "date", label: "Thời gian" },
-    ],
-  },
-  deposits: {
-    title: "Nạp & rút tiền",
-    description: "Duyệt yêu cầu nạp/rút; duyệt xong số dư ví được cập nhật ngay.",
-    icon: CircleDollarSign,
-    columns: [
-      { key: "id", label: "Yêu cầu" },
-      { key: "account", label: "Tài khoản" },
-      { key: "type", label: "Loại" },
-      { key: "value", label: "Số tiền" },
-      { key: "created", label: "Thời gian" },
-      { key: "status", label: "Trạng thái" },
     ],
   },
   categories: {
@@ -320,7 +305,6 @@ const REPORT_KINDS: Record<string, string> = {
 const notificationIcons: Record<string, LucideIcon> = {
   orders: ShoppingCart,
   inventory: AlertTriangle,
-  deposits: CircleDollarSign,
   support: Headphones,
   customers: Users,
   transactions: RefreshCw,
@@ -572,7 +556,7 @@ function Overview({
             </div>
           </article>
           <article className={styles.panel}>
-            <div className={styles.panelHeader}><div><h2>Hoạt động gần đây</h2><p>Đơn, nạp/rút, hỗ trợ, khách mới</p></div></div>
+            <div className={styles.panelHeader}><div><h2>Hoạt động gần đây</h2><p>Đơn, hỗ trợ, khách mới</p></div></div>
             <div className={styles.activityList}>
               {stats?.recentActivity.length ? stats.recentActivity.map((item, index) => {
                 const meta = activityIcon[item.type];
@@ -891,7 +875,7 @@ export function AdminDashboard({
     router.push(id === "overview" ? "/admin" : `/admin/${id}`);
   };
 
-  const EDITABLE_SECTIONS: ModuleSection[] = ["categories", "promotions", "content", "settings", "orders", "support", "deposits", "customers"];
+  const EDITABLE_SECTIONS: ModuleSection[] = ["categories", "promotions", "content", "settings", "orders", "support", "customers"];
 
   /** "Xem chi tiết": products open their own page; other sections open a dialog or the generic detail. */
   const inspectRow = (row: DataRow) => {
@@ -1109,7 +1093,6 @@ export function AdminDashboard({
       {editor?.section === "settings" && typeof editor.id === "string" && <SettingForm settingKey={editor.id} onClose={() => setEditor(null)} onSaved={(message) => void afterEditorSaved(message)} />}
       {editor?.section === "orders" && typeof editor.id === "number" && <OrderDetail orderId={editor.id} onClose={() => setEditor(null)} onChanged={(message) => { notify(message); void Promise.all([remote.refresh(), refreshStats()]); }} />}
       {editor?.section === "support" && typeof editor.id === "number" && <TicketDetail ticketId={editor.id} onClose={() => setEditor(null)} onChanged={(message) => { notify(message); void Promise.all([remote.refresh(), refreshStats()]); }} />}
-      {editor?.section === "deposits" && typeof editor.id === "number" && <FundRequestDetail requestId={editor.id} onClose={() => setEditor(null)} onChanged={(message) => void afterEditorSaved(message)} />}
       {editor?.section === "customers" && typeof editor.id === "number" && <CustomerDetail userId={editor.id} onClose={() => setEditor(null)} onChanged={(message) => { notify(message); void remote.refresh(); }} />}
       <div className={`${styles.toast} ${toast?.tone === "error" ? styles.toastError : ""} ${toast ? styles.toastVisible : ""}`} role="status">{toast?.tone === "error" ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}{toast?.message}</div>
     </div>

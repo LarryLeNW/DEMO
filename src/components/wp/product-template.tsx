@@ -19,15 +19,12 @@ import { ContentBody } from "@/components/wp/content-body";
 import { catalogApi, type ApiCategory, type ApiProduct, type ApiReview, type ApiVariant } from "@/lib/api/catalog";
 import { replaceBrandText } from "@/lib/brand";
 import { FALLBACK_PRODUCT_IMAGE } from "@/lib/commerce-mapping";
-import { ZaloContactModal } from "@/components/commerce/zalo-contact-modal";
 import { formatDateTime } from "@/lib/dates";
 import { formatCurrency } from "@/lib/format";
-import type { ZaloContact } from "@/lib/zalo-contact";
 
 type ProductTemplateProps = {
   product: ApiProduct;
   parentCategory: ApiCategory | null;
-  zaloContact?: ZaloContact;
 };
 
 type Option = {
@@ -41,7 +38,7 @@ type Option = {
   variantId?: number;
 };
 
-export function ProductTemplate({ product, parentCategory, zaloContact }: ProductTemplateProps) {
+export function ProductTemplate({ product, parentCategory }: ProductTemplateProps) {
   const commerce = useCommerce();
   const { user } = useAuth();
   const category = product.categories[0] ?? null;
@@ -71,7 +68,6 @@ export function ProductTemplate({ product, parentCategory, zaloContact }: Produc
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const shownImage = activeImage ?? gallery[0] ?? null;
   const [toast, setToast] = useState<string | null>(null);
-  const [contactOpen, setContactOpen] = useState(false);
 
   const hasAutoDelivery = product.variants.some((variant) => variant.deliveryType === "auto");
   const deliveryText =
@@ -110,12 +106,6 @@ export function ProductTemplate({ product, parentCategory, zaloContact }: Produc
   }
 
   function buyNow() {
-    // Tạm thời (09/2026): thanh toán ngân hàng chưa được xử lý — hướng khách liên hệ Zalo.
-    // Khi sẵn sàng, bỏ nhánh popup để quay lại checkout.
-    if (zaloContact) {
-      setContactOpen(true);
-      return;
-    }
     commerce.addToCart(productSnapshot, cartOptions);
     commerce.openCheckout();
   }
@@ -155,26 +145,6 @@ export function ProductTemplate({ product, parentCategory, zaloContact }: Produc
         <div className="fixed right-4 top-4 z-[90] rounded-md bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-xl">
           {toast}
         </div>
-      ) : null}
-
-      {zaloContact ? (
-        <ZaloContactModal
-          open={contactOpen}
-          onClose={() => setContactOpen(false)}
-          zaloLink={zaloContact.zaloLink}
-          hotline={zaloContact.hotline}
-          zaloQr={zaloContact.zaloQr}
-          message={
-            <>
-              Thanh toán trực tuyến đang được hoàn thiện. Nhắn Zalo cho chúng tôi để đặt mua{" "}
-              <strong className="text-slate-900">{product.name}</strong>
-              {selectedOption ? (
-                <> — <strong className="text-red-600">{formatCurrency(selectedOption.price)}</strong></>
-              ) : null}{" "}
-              và nhận hàng nhanh nhất.
-            </>
-          }
-        />
       ) : null}
 
       <nav className="ktk-product-frame flex h-[70px] items-center overflow-hidden whitespace-nowrap text-[16px] text-slate-500 lg:h-[80px]">

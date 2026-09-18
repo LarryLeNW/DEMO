@@ -60,9 +60,10 @@ export class OrderItemInputDto {
 
 export class CreateOrderDto {
   @ApiProperty({ type: OrderCustomerDto })
+  @IsOptional()
   @ValidateNested()
   @Type(() => OrderCustomerDto)
-  customer: OrderCustomerDto;
+  customer?: OrderCustomerDto;
 
   @ApiProperty({ type: [OrderItemInputDto] })
   @IsArray()

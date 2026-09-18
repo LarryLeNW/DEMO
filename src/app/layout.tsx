@@ -4,7 +4,6 @@ import { AuthProvider } from "@/components/auth/auth-provider";
 import { CommerceProvider } from "@/components/commerce/commerce-provider";
 import { SiteShell } from "@/components/layout/site-shell";
 import { siteConfig } from "@/config/site";
-import { getZaloContact } from "@/lib/zalo-contact";
 import "./globals.css";
 
 const beVietnamPro = Be_Vietnam_Pro({
@@ -32,7 +31,6 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const zaloContact = await getZaloContact();
   return (
     <html
       lang="vi"
@@ -40,7 +38,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full bg-background text-foreground">
         <AuthProvider>
-          <CommerceProvider zaloContact={zaloContact}>
+          <CommerceProvider>
             <SiteShell>{children}</SiteShell>
           </CommerceProvider>
         </AuthProvider>

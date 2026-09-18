@@ -48,10 +48,16 @@ export type BankInfo = {
   accountName: string;
 };
 
+type OrderCustomerSnapshot = {
+  name: string;
+  phone: string;
+  email: string;
+};
+
 /** Fallback until an admin saves `payment.bank` in Settings. */
 const DEFAULT_BANK_INFO: BankInfo = {
-  bankName: 'ACB',
-  accountNumber: '0000000000',
+  bankName: 'VCB',
+  accountNumber: '1017164832',
   accountName: 'AIHUB',
 };
 
@@ -65,6 +71,30 @@ const ORDER_RELATIONS = {
   items: { inventoryItems: true },
   payments: true,
 } as const;
+
+function transferContentFor(orderCode: string, userId: number | null | undefined) {
+  return userId ? `AIHUB ${orderCode} KH${userId}` : `AIHUB ${orderCode}`;
+}
+
+function orderCustomerFrom(dto: CreateOrderDto, user: User | null): OrderCustomerSnapshot {
+  if (user) {
+    return {
+      name: user.fullName.trim(),
+      phone: user.phone?.trim() ?? '',
+      email: user.email,
+    };
+  }
+
+  if (!dto.customer) {
+    throw new ForbiddenException('Đăng nhập để đặt hàng');
+  }
+
+  return {
+    name: dto.customer.name.trim(),
+    phone: dto.customer.phone.trim(),
+    email: dto.customer.email,
+  };
+}
 
 @Injectable()
 export class OrdersService {
@@ -91,6 +121,7 @@ export class OrdersService {
       throw new ForbiddenException('Đăng nhập để thanh toán bằng số dư AIHUB');
     }
 
+    const customer = orderCustomerFrom(dto, user);
     const lines = await this.resolveLines(dto);
     const subtotal = lines.reduce(
       (sum, line) => sum + line.variant.price * line.quantity,
@@ -126,9 +157,9 @@ export class OrdersService {
         manager.create(Order, {
           code: placeholderCode(),
           userId: user?.id ?? null,
-          customerName: dto.customer.name.trim(),
-          customerPhone: dto.customer.phone.trim(),
-          customerEmail: dto.customer.email,
+          customerName: customer.name,
+          customerPhone: customer.phone,
+          customerEmail: customer.email,
           note: dto.note?.trim() || null,
           paymentMethod: dto.paymentMethod,
           status: OrderStatus.PendingPayment,
@@ -207,7 +238,7 @@ export class OrdersService {
             status: PaymentStatus.Pending,
             provider:
               dto.paymentMethod === PaymentMethod.BankTransfer ? 'ACB' : 'Zalo',
-            transferContent: created.code,
+            transferContent: transferContentFor(created.code, user?.id),
           }),
         );
       }
@@ -299,7 +330,9 @@ export class OrdersService {
     return {
       method: order.paymentMethod,
       amount: order.total,
-      transferContent: order.code,
+      transferContent:
+        order.payments?.find((payment) => payment.status === PaymentStatus.Pending)
+          ?.transferContent ?? transferContentFor(order.code, order.userId),
       ...bank,
     };
   }

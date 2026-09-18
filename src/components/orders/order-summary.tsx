@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, CheckCircle2, KeyRound, Landmark } from "lucide-react";
+import { Copy, CheckCircle2, KeyRound, Landmark, QrCode } from "lucide-react";
 import { formatDateTime } from "@/lib/dates";
 import { formatCurrency } from "@/lib/format";
 import {
@@ -52,6 +52,54 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
+function vietQrBankId(bankName: string) {
+  const normalized = bankName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+  const bankIds: Record<string, string> = {
+    acb: "acb",
+    asiacommercialbank: "acb",
+    vietcombank: "vcb",
+    vcb: "vcb",
+    techcombank: "tcb",
+    tcb: "tcb",
+    mbbank: "mb",
+    mb: "mb",
+    bidv: "bidv",
+    vietinbank: "vietinbank",
+    viettinbank: "vietinbank",
+    vpbank: "vpbank",
+    sacombank: "sacombank",
+    tpbank: "tpbank",
+    vib: "vib",
+    msb: "msb",
+    shb: "shb",
+    hdbank: "hdbank",
+    ocb: "ocb",
+    eximbank: "eximbank",
+    seabank: "seabank",
+  };
+
+  return bankIds[normalized] ?? normalized;
+}
+
+function vietQrImageUrl(instructions: PaymentInstructions) {
+  const bankId = vietQrBankId(instructions.bankName);
+  const accountNumber = instructions.accountNumber.replace(/\s/g, "");
+  const params = new URLSearchParams({
+    amount: String(Math.round(instructions.amount)),
+    addInfo: instructions.transferContent,
+    accountName: instructions.accountName,
+  });
+
+  return `https://img.vietqr.io/image/${encodeURIComponent(bankId)}-${encodeURIComponent(
+    accountNumber,
+  )}-compact2.png?${params.toString()}`;
+}
+
 export function PaymentInstructionsCard({ instructions }: { instructions: PaymentInstructions }) {
   if (instructions.method === "zalo") {
     return (
@@ -65,12 +113,13 @@ export function PaymentInstructionsCard({ instructions }: { instructions: Paymen
     );
   }
 
-  const rows: [string, string][] = [
+  const qrUrl = vietQrImageUrl(instructions);
+  const rows: [string, string, boolean?][] = [
     ["Ngân hàng", instructions.bankName],
-    ["Số tài khoản", instructions.accountNumber],
+    ["Số tài khoản", instructions.accountNumber, true],
     ["Chủ tài khoản", instructions.accountName],
-    ["Số tiền", formatCurrency(instructions.amount)],
-    ["Nội dung CK", instructions.transferContent],
+    ["Số tiền", formatCurrency(instructions.amount), true],
+    ["Nội dung CK", instructions.transferContent, true],
   ];
 
   return (
@@ -79,13 +128,30 @@ export function PaymentInstructionsCard({ instructions }: { instructions: Paymen
         <Landmark size={16} aria-hidden="true" />
         Chuyển khoản để hoàn tất đơn
       </p>
+      <div className="mt-3 flex flex-col items-center gap-3 rounded-md border border-emerald-100 bg-white p-3 text-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={qrUrl}
+          alt={`QR chuyển khoản ${instructions.bankName}`}
+          className="h-52 w-52 rounded-md object-contain"
+          loading="lazy"
+        />
+        <p className="inline-flex items-center gap-1.5 text-[12px] font-extrabold text-emerald-700">
+          <QrCode size={14} aria-hidden="true" />
+          Quét QR hoặc chuyển khoản thủ công theo thông tin bên dưới
+        </p>
+      </div>
       <dl className="mt-3 space-y-2 text-[13px]">
-        {rows.map(([label, value]) => (
+        {rows.map(([label, value, copyable]) => (
           <div key={label} className="flex items-center justify-between gap-3">
             <dt className="text-slate-600">{label}</dt>
             <dd className="flex items-center gap-2 font-extrabold text-slate-950">
               <span className="break-all text-right">{value}</span>
-              {label === "Số tài khoản" || label === "Nội dung CK" ? <CopyButton value={value} /> : null}
+              {copyable ? (
+                <CopyButton
+                  value={label === "Số tiền" ? String(Math.round(instructions.amount)) : value}
+                />
+              ) : null}
             </dd>
           </div>
         ))}

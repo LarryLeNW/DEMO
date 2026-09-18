@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Heart,
   Minus,
@@ -21,12 +22,12 @@ import {
   X,
 } from "lucide-react";
 import { AccountPanel } from "@/components/auth/account-panel";
-import { useAuth } from "@/components/auth/auth-provider";
-import { ZaloContactModal } from "@/components/commerce/zalo-contact-modal";
+import { LoginForm, RegisterForm } from "@/components/auth/auth-forms";
+import { useAuth, type AuthStatus } from "@/components/auth/auth-provider";
 import { OrderSummary } from "@/components/orders/order-summary";
+import type { AuthUser } from "@/lib/api/auth";
 import { ordersApi, type ApiOrder, type PaymentMethod } from "@/lib/api/orders";
 import { formatCurrency } from "@/lib/format";
-import type { ZaloContact } from "@/lib/zalo-contact";
 
 export type CommerceProductSnapshot = {
   id: string;
@@ -47,9 +48,6 @@ export type CartLine = CommerceProductSnapshot & {
 };
 
 type CheckoutDraft = {
-  name: string;
-  phone: string;
-  email: string;
   note: string;
   paymentMethod: PaymentMethod;
 };
@@ -63,6 +61,12 @@ type CommerceContextValue = {
   wishlistCount: number;
   subtotal: number;
   drawer: CommerceDrawer | null;
+  checkoutDraft: CheckoutDraft;
+  placedOrder: ApiOrder | null;
+  checkoutError: string | null;
+  checkoutPending: boolean;
+  authStatus: AuthStatus;
+  user: AuthUser | null;
   isWishlisted: (slug: string) => boolean;
   addToCart: (
     product: CommerceProductSnapshot,
@@ -81,12 +85,19 @@ type CommerceContextValue = {
   openWishlist: () => void;
   openAccount: () => void;
   openCheckout: () => void;
+  updateCheckoutDraft: (draft: CheckoutDraft) => void;
+  submitCheckout: () => Promise<void>;
+  resetCheckout: () => void;
 };
 
 const CommerceContext = createContext<CommerceContextValue | null>(null);
 
 const cartStorageKey = "ktk.cart.v1";
 const wishlistStorageKey = "ktk.wishlist.v1";
+
+function prefersPageSurface() {
+  return typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
+}
 
 function normalizeWishlist(value: unknown) {
   if (!Array.isArray(value)) {
@@ -140,19 +151,16 @@ function wishlistSnapshotFromSlug(slug: string): CommerceProductSnapshot {
   };
 }
 
-export function CommerceProvider({ children, zaloContact }: { children: ReactNode; zaloContact?: ZaloContact }) {
+export function CommerceProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [cart, setCart] = useState<CartLine[]>([]);
   const [wishlist, setWishlist] = useState<CommerceProductSnapshot[]>([]);
   const [drawer, setDrawer] = useState<CommerceDrawer | null>(
     null,
   );
-  const [contactOpen, setContactOpen] = useState(false);
   const [hasLoadedStorage, setHasLoadedStorage] = useState(false);
-  const { user } = useAuth();
+  const { status, user } = useAuth();
   const [checkoutDraft, setCheckoutDraft] = useState<CheckoutDraft>({
-    name: "",
-    phone: "",
-    email: "",
     note: "",
     paymentMethod: "bank_transfer",
   });
@@ -160,15 +168,14 @@ export function CommerceProvider({ children, zaloContact }: { children: ReactNod
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutPending, setCheckoutPending] = useState(false);
 
-  // Signed-in users get their profile pre-filled until they type something else.
-  const effectiveDraft: CheckoutDraft = {
-    ...checkoutDraft,
-    name: checkoutDraft.name || user?.fullName || "",
-    email: checkoutDraft.email || user?.email || "",
-    phone: checkoutDraft.phone || user?.phone || "",
-    paymentMethod:
-      checkoutDraft.paymentMethod === "wallet" && !user ? "bank_transfer" : checkoutDraft.paymentMethod,
-  };
+  const effectiveDraft = useMemo<CheckoutDraft>(
+    () => ({
+      ...checkoutDraft,
+      paymentMethod:
+        checkoutDraft.paymentMethod === "wallet" ? "bank_transfer" : checkoutDraft.paymentMethod,
+    }),
+    [checkoutDraft],
+  );
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -259,33 +266,16 @@ export function CommerceProvider({ children, zaloContact }: { children: ReactNod
     [cart],
   );
 
-  const value = useMemo<CommerceContextValue>(
-    () => ({
-      cart,
-      wishlist,
-      cartCount: cart.reduce((sum, item) => sum + item.quantity, 0),
-      wishlistCount: wishlist.length,
-      subtotal,
-      drawer,
-      isWishlisted: (slug) => wishlist.some((item) => item.slug === slug),
-      addToCart,
-      removeFromCart,
-      updateQuantity,
-      toggleWishlist,
-      closeDrawer: () => setDrawer(null),
-      openCart: () => setDrawer("cart"),
-      openWishlist: () => setDrawer("wishlist"),
-      openAccount: () => setDrawer("account"),
-      openCheckout: () => {
-        setPlacedOrder(null);
-        setCheckoutError(null);
-        setDrawer("checkout");
-      },
-    }),
-    [addToCart, cart, drawer, removeFromCart, subtotal, toggleWishlist, updateQuantity, wishlist],
-  );
+  const resetCheckout = useCallback(() => {
+    setPlacedOrder(null);
+    setCheckoutError(null);
+  }, []);
 
-  async function submitCheckout() {
+  const submitCheckout = useCallback(async () => {
+    if (!user) {
+      setCheckoutError("Vui lòng đăng nhập hoặc tạo tài khoản để đặt hàng.");
+      return;
+    }
     const missing = cart.filter((line) => !line.variantId);
     if (missing.length) {
       setCheckoutError(
@@ -300,11 +290,6 @@ export function CommerceProvider({ children, zaloContact }: { children: ReactNod
     setCheckoutPending(true);
     try {
       const order = await ordersApi.create({
-        customer: {
-          name: effectiveDraft.name.trim(),
-          phone: effectiveDraft.phone.trim(),
-          email: effectiveDraft.email.trim(),
-        },
         items: cart.map((line) => ({ variantId: line.variantId as number, quantity: line.quantity })),
         paymentMethod: effectiveDraft.paymentMethod,
         note: effectiveDraft.note.trim() || undefined,
@@ -316,7 +301,71 @@ export function CommerceProvider({ children, zaloContact }: { children: ReactNod
     } finally {
       setCheckoutPending(false);
     }
-  }
+  }, [cart, effectiveDraft, user]);
+
+  const value = useMemo<CommerceContextValue>(
+    () => ({
+      cart,
+      wishlist,
+      cartCount: cart.reduce((sum, item) => sum + item.quantity, 0),
+      wishlistCount: wishlist.length,
+      subtotal,
+      drawer,
+      checkoutDraft: effectiveDraft,
+      placedOrder,
+      checkoutError,
+      checkoutPending,
+      authStatus: status,
+      user,
+      isWishlisted: (slug) => wishlist.some((item) => item.slug === slug),
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      toggleWishlist,
+      closeDrawer: () => setDrawer(null),
+      openCart: () => setDrawer("cart"),
+      openWishlist: () => setDrawer("wishlist"),
+      openAccount: () => {
+        if (prefersPageSurface()) {
+          setDrawer(null);
+          router.push("/tai-khoan");
+          return;
+        }
+        setDrawer("account");
+      },
+      openCheckout: () => {
+        resetCheckout();
+        if (prefersPageSurface()) {
+          setDrawer(null);
+          router.push("/thanh-toan");
+          return;
+        }
+        setDrawer("checkout");
+      },
+      updateCheckoutDraft: setCheckoutDraft,
+      submitCheckout,
+      resetCheckout,
+    }),
+    [
+      addToCart,
+      cart,
+      checkoutError,
+      checkoutPending,
+      drawer,
+      effectiveDraft,
+      placedOrder,
+      removeFromCart,
+      resetCheckout,
+      router,
+      status,
+      submitCheckout,
+      subtotal,
+      toggleWishlist,
+      updateQuantity,
+      user,
+      wishlist,
+    ],
+  );
 
   return (
     <CommerceContext.Provider value={value}>
@@ -359,16 +408,7 @@ export function CommerceProvider({ children, zaloContact }: { children: ReactNod
                 cart={cart}
                 subtotal={subtotal}
                 onProductClick={() => setDrawer(null)}
-                // Tạm thời (09/2026): thanh toán ngân hàng chưa xử lý — đóng drawer giỏ và mở popup Zalo.
-                // Khôi phục `() => setDrawer("checkout")` khi sẵn sàng.
-                onCheckout={
-                  zaloContact
-                    ? () => {
-                        setDrawer(null);
-                        setContactOpen(true);
-                      }
-                    : () => setDrawer("checkout")
-                }
+                onCheckout={value.openCheckout}
                 onRemove={removeFromCart}
                 onUpdateQuantity={updateQuantity}
               />
@@ -395,34 +435,17 @@ export function CommerceProvider({ children, zaloContact }: { children: ReactNod
                 placedOrder={placedOrder}
                 error={checkoutError}
                 pending={checkoutPending}
-                walletAvailable={Boolean(user)}
+                authStatus={status}
+                user={user}
                 subtotal={subtotal}
                 onChange={setCheckoutDraft}
+                onAuthSuccess={() => setCheckoutError(null)}
                 onSubmit={() => void submitCheckout()}
                 onClose={() => setDrawer(null)}
               />
             ) : null}
           </aside>
         </div>
-      ) : null}
-      {zaloContact ? (
-        <ZaloContactModal
-          open={contactOpen}
-          onClose={() => setContactOpen(false)}
-          zaloLink={zaloContact.zaloLink}
-          hotline={zaloContact.hotline}
-          zaloQr={zaloContact.zaloQr}
-          message={
-            <>
-              Thanh toán trực tuyến đang được hoàn thiện. Nhắn Zalo cho chúng tôi để đặt{" "}
-              <strong className="text-slate-900">
-                {cart.reduce((sum, line) => sum + line.quantity, 0)} sản phẩm
-              </strong>{" "}
-              trong giỏ — tạm tính <strong className="text-red-600">{formatCurrency(subtotal)}</strong> — và nhận hàng
-              nhanh nhất.
-            </>
-          }
-        />
       ) : null}
     </CommerceContext.Provider>
   );
@@ -434,6 +457,100 @@ export function useCommerce() {
     throw new Error("useCommerce must be used inside CommerceProvider");
   }
   return context;
+}
+
+export function CheckoutPageContent() {
+  const commerce = useCommerce();
+
+  return (
+    <div className="ktk-page-frame py-8 lg:py-10">
+      <div className="mb-7">
+        <p className="text-[12px] font-extrabold uppercase text-primary-strong">Thanh toán đơn hàng</p>
+        <h1 className="mt-1 text-[30px] font-extrabold text-slate-950">Hoàn tất đặt hàng</h1>
+        <p className="mt-2 max-w-[680px] text-[15px] leading-6 text-slate-600">
+          Đăng nhập để AIHUB lưu đơn vào tài khoản, sau đó quét QR chuyển khoản đúng số tiền và nội dung.
+        </p>
+      </div>
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,760px)_360px]">
+        <div className="rounded-[8px] border border-border bg-white shadow-sm">
+          <CheckoutDrawer
+            cart={commerce.cart}
+            draft={commerce.checkoutDraft}
+            placedOrder={commerce.placedOrder}
+            error={commerce.checkoutError}
+            pending={commerce.checkoutPending}
+            authStatus={commerce.authStatus}
+            user={commerce.user}
+            subtotal={commerce.subtotal}
+            onChange={commerce.updateCheckoutDraft}
+            onAuthSuccess={() => commerce.resetCheckout()}
+            onSubmit={() => void commerce.submitCheckout()}
+            onClose={commerce.closeDrawer}
+            surface="page"
+          />
+        </div>
+        <CheckoutOrderSummary cart={commerce.cart} subtotal={commerce.subtotal} />
+      </div>
+    </div>
+  );
+}
+
+function CheckoutOrderSummary({ cart, subtotal }: { cart: CartLine[]; subtotal: number }) {
+  const quantity = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  return (
+    <aside className="sticky top-6 rounded-[8px] border border-border bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[18px] font-extrabold text-slate-950">Tóm tắt đơn</h2>
+        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-extrabold text-emerald-700">
+          {quantity} sản phẩm
+        </span>
+      </div>
+
+      {cart.length ? (
+        <ul className="mt-4 divide-y divide-border">
+          {cart.map((item) => (
+            <li key={item.lineId} className="flex gap-3 py-3">
+              {item.image ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={item.image} alt={item.title} className="size-14 rounded-md object-cover" />
+                </>
+              ) : (
+                <div className="grid size-14 shrink-0 place-items-center rounded-md bg-surface-muted text-xs font-extrabold text-primary-strong">
+                  AI
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="line-clamp-2 text-[13px] font-extrabold text-slate-950">{item.title}</p>
+                <p className="mt-1 text-[12px] text-muted">
+                  {[item.variantLabel, item.durationLabel].filter(Boolean).join(" · ")} × {item.quantity}
+                </p>
+              </div>
+              <span className="shrink-0 text-[13px] font-extrabold text-slate-900">
+                {formatCurrency(item.price * item.quantity)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-4 rounded-md border border-dashed border-border p-4 text-center text-[13px] text-muted">
+          Giỏ hàng đang trống.
+        </p>
+      )}
+
+      <div className="mt-4 space-y-2 border-t border-border pt-4 text-[14px]">
+        <div className="flex justify-between text-slate-600">
+          <span>Tạm tính</span>
+          <span>{formatCurrency(subtotal)}</span>
+        </div>
+        <div className="flex justify-between text-[18px] font-black text-slate-950">
+          <span>Tổng thanh toán</span>
+          <span>{formatCurrency(subtotal)}</span>
+        </div>
+      </div>
+    </aside>
+  );
 }
 
 function CartDrawer({
@@ -637,23 +754,32 @@ function CheckoutDrawer({
   placedOrder,
   error,
   pending,
-  walletAvailable,
+  authStatus,
+  user,
   subtotal,
   onChange,
+  onAuthSuccess,
   onSubmit,
   onClose,
+  surface = "drawer",
 }: {
   cart: CartLine[];
   draft: CheckoutDraft;
   placedOrder: ApiOrder | null;
   error: string | null;
   pending: boolean;
-  walletAvailable: boolean;
+  authStatus: AuthStatus;
+  user: AuthUser | null;
   subtotal: number;
   onChange: (draft: CheckoutDraft) => void;
+  onAuthSuccess: () => void;
   onSubmit: () => void;
   onClose: () => void;
+  surface?: "drawer" | "page";
 }) {
+  const [authTab, setAuthTab] = useState<"login" | "register">("login");
+  const isPage = surface === "page";
+
   if (placedOrder) {
     return (
       <div className="flex-1 overflow-auto p-5">
@@ -666,7 +792,7 @@ function CheckoutDrawer({
               : "Đơn đã được thanh toán và đang được xử lý."}
           </p>
         </div>
-        <OrderSummary order={placedOrder} compact />
+        <OrderSummary order={placedOrder} compact={!isPage} />
         <Link
           href={`/kiem-tra-don-hang?code=${encodeURIComponent(placedOrder.code)}&email=${encodeURIComponent(placedOrder.customerEmail)}`}
           className="focus-ring mt-4 inline-flex h-11 w-full items-center justify-center rounded-md border border-border font-extrabold text-slate-800 transition hover:bg-slate-50"
@@ -678,39 +804,82 @@ function CheckoutDrawer({
     );
   }
 
+  if (authStatus !== "authenticated" || !user) {
+    return (
+      <div className={isPage ? "p-6" : "flex-1 overflow-auto p-5"}>
+        <div className={isPage ? "hidden" : "mb-4 rounded-md bg-surface-muted p-3 text-sm"}>
+          <div className="flex justify-between font-extrabold">
+            <span>{cart.length} sản phẩm</span>
+            <span>{formatCurrency(subtotal)}</span>
+          </div>
+        </div>
+        <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] font-semibold leading-5 text-amber-800">
+          Đăng nhập hoặc tạo tài khoản để đặt hàng. Thông tin giao tài khoản sẽ lấy từ hồ sơ của bạn.
+        </p>
+        <div className="mb-5 grid grid-cols-2 rounded-md bg-slate-100 p-1 text-[13px] font-extrabold" role="tablist">
+          {(
+            [
+              ["login", "Đăng nhập"],
+              ["register", "Đăng ký"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={authTab === value}
+              className={`focus-ring h-9 cursor-pointer rounded-[5px] transition ${
+                authTab === value ? "bg-white text-primary-strong shadow-sm" : "text-slate-600"
+              }`}
+              onClick={() => setAuthTab(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {authTab === "login" ? (
+          <LoginForm idPrefix="checkout-login" onSuccess={onAuthSuccess} />
+        ) : (
+          <RegisterForm idPrefix="checkout-register" onSuccess={onAuthSuccess} />
+        )}
+        {error ? (
+          <p
+            role="alert"
+            className="mt-4 whitespace-pre-line rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] font-semibold leading-5 text-red-700"
+          >
+            {error}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
   const paymentOptions: [PaymentMethod, string][] = [
     ["bank_transfer", "Chuyển khoản ACB / QR"],
     ["zalo", "Liên hệ Zalo để xác nhận"],
-    ...(walletAvailable ? ([["wallet", "Trừ vào số dư AIHUB"]] as [PaymentMethod, string][]) : []),
   ];
 
   return (
-    <div className="flex-1 overflow-auto p-5">
-      <div className="mb-4 rounded-md bg-surface-muted p-3 text-sm">
+    <div className={isPage ? "p-6" : "flex-1 overflow-auto p-5"}>
+      <div className={isPage ? "hidden" : "mb-4 rounded-md bg-surface-muted p-3 text-sm"}>
         <div className="flex justify-between font-extrabold">
           <span>{cart.length} sản phẩm</span>
           <span>{formatCurrency(subtotal)}</span>
         </div>
       </div>
       <div className="space-y-4">
-        {[
-          ["name", "Họ tên", "text"],
-          ["phone", "Số điện thoại", "tel"],
-          ["email", "Email nhận tài khoản", "email"],
-        ].map(([field, label, type]) => (
-          <label key={field} className="block text-sm font-bold text-slate-800">
-            {label}
-            <input
-              className="mt-2 h-11 w-full rounded-md border border-border px-3 outline-none focus:border-primary"
-              type={type}
-              value={draft[field as keyof CheckoutDraft]}
-              disabled={pending}
-              onChange={(event) =>
-                onChange({ ...draft, [field]: event.currentTarget.value })
-              }
-            />
-          </label>
-        ))}
+        {isPage ? (
+          <div>
+            <h2 className="text-[20px] font-extrabold text-slate-950">Thông tin đặt hàng</h2>
+            <p className="mt-1 text-[13px] text-muted">Đơn sẽ được lưu và giao theo email trong tài khoản này.</p>
+          </div>
+        ) : null}
+        <div className="rounded-[8px] border border-emerald-100 bg-emerald-50/60 p-4 text-[13px]">
+          <p className="text-[12px] font-bold uppercase text-slate-500">Tài khoản đặt hàng</p>
+          <p className="mt-1 font-extrabold text-slate-950">{user.fullName}</p>
+          <p className="mt-0.5 text-slate-600">{user.email}</p>
+          {user.phone ? <p className="mt-0.5 text-slate-600">{user.phone}</p> : null}
+        </div>
         <label className="block text-sm font-bold text-slate-800">
           Ghi chú
           <textarea
@@ -721,10 +890,15 @@ function CheckoutDrawer({
           />
         </label>
         <div className="grid gap-2">
+          <p className="text-sm font-bold text-slate-800">Phương thức thanh toán</p>
           {paymentOptions.map(([value, label]) => (
             <label
               key={value}
-              className="flex items-center gap-2 rounded-md border border-border p-3 text-sm font-bold"
+              className={`flex cursor-pointer items-center gap-3 rounded-[8px] border p-4 text-sm font-bold transition ${
+                draft.paymentMethod === value
+                  ? "border-primary bg-emerald-50 text-slate-950 shadow-sm"
+                  : "border-border bg-white text-slate-800 hover:border-emerald-200"
+              }`}
             >
               <input
                 type="radio"
@@ -732,7 +906,14 @@ function CheckoutDrawer({
                 disabled={pending}
                 onChange={() => onChange({ ...draft, paymentMethod: value })}
               />
-              {label}
+              <span>
+                {label}
+                <span className="mt-0.5 block text-[12px] font-semibold text-muted">
+                  {value === "bank_transfer"
+                    ? "Tạo mã QR VietQR sau khi đặt đơn."
+                    : "Dùng khi bạn muốn nhân viên xác nhận thủ công qua Zalo."}
+                </span>
+              </span>
             </label>
           ))}
         </div>
@@ -747,10 +928,10 @@ function CheckoutDrawer({
         <button
           className="h-12 w-full rounded-md bg-accent font-extrabold text-white disabled:opacity-50"
           type="button"
-          disabled={pending || !cart.length || !draft.email || !draft.phone || !draft.name}
+          disabled={pending || !cart.length}
           onClick={onSubmit}
         >
-          {pending ? "Đang tạo đơn…" : "Đặt hàng"}
+          {pending ? "Đang tạo đơn…" : "Đặt hàng & lấy mã QR"}
         </button>
       </div>
     </div>

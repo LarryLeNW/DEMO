@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
+import type { ValidationError } from 'class-validator';
 import { AppController } from './app.controller.js';
 import { AuthModule } from './auth/auth.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
@@ -23,6 +24,14 @@ import { SupportModule } from './support/support.module.js';
 import { SystemModule } from './system/system.module.js';
 import { UploadsModule } from './uploads/uploads.module.js';
 import { UsersModule } from './users/users.module.js';
+
+function validationErrorPaths(errors: ValidationError[], parent = ''): string[] {
+  return errors.flatMap((error) => {
+    const path = parent ? `${parent}.${error.property}` : error.property;
+    const childPaths = validationErrorPaths(error.children ?? [], path);
+    return childPaths.length ? childPaths : [path];
+  });
+}
 
 @Module({
   imports: [
@@ -56,7 +65,7 @@ import { UsersModule } from './users/users.module.js';
         transformOptions: { enableImplicitConversion: false },
         exceptionFactory: (errors) =>
           new BadRequestException(
-            `Dữ liệu không hợp lệ: ${[...new Set(errors.map((error) => error.property))].join(', ')}`,
+            `Dữ liệu không hợp lệ: ${[...new Set(validationErrorPaths(errors))].join(', ')}`,
           ),
       }),
     },

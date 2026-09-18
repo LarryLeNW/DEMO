@@ -8,7 +8,6 @@ import { buildQuery, type ApiCategory, type ApiProduct, type Paginated } from "@
 import { toContentDoc, type ApiPage, type ApiPost } from "@/lib/api/content";
 import { serverFetch } from "@/lib/api/server";
 import { replaceBrandText } from "@/lib/brand";
-import { getZaloContact } from "@/lib/zalo-contact";
 import { apiProductToCommerce } from "@/lib/commerce-mapping";
 
 /** Every catalog/content URL is served from the API with 60s ISR; new products/posts need no deploy. */
@@ -100,13 +99,8 @@ export default async function CatchAllPage(props: PageProps<"/[...slug]">) {
   switch (resolved.kind) {
     case "product": {
       const categoryPath = resolved.product.categories[0]?.path;
-      const [parentCategory, zaloContact] = await Promise.all([
-        categoryPath ? fetchParentCategory(categoryPath) : null,
-        getZaloContact(),
-      ]);
-      return (
-        <ProductTemplate product={resolved.product} parentCategory={parentCategory} zaloContact={zaloContact} />
-      );
+      const parentCategory = categoryPath ? await fetchParentCategory(categoryPath) : null;
+      return <ProductTemplate product={resolved.product} parentCategory={parentCategory} />;
     }
     case "category": {
       const [products, parent] = await Promise.all([

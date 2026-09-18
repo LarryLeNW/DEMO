@@ -16,7 +16,6 @@ import {
   type AdminTicket,
   type AdminTransaction,
   type AdminVariant,
-  type ApiFundRequest,
   type ApiPromotion,
 } from "@/lib/api/admin";
 import { orderStatusLabels, paymentMethodLabels, type ApiOrder } from "@/lib/api/orders";
@@ -30,7 +29,6 @@ export type AdminSection =
   | "inventory"
   | "customers"
   | "transactions"
-  | "deposits"
   | "categories"
   | "promotions"
   | "content"
@@ -42,7 +40,19 @@ export type AdminSection =
 export type ModuleSection = Exclude<AdminSection, "overview">;
 
 /** Sections handed over in this release; every other section shows a "Đang hoàn thiện" placeholder. */
-export const RELEASED_SECTIONS: readonly AdminSection[] = ["overview", "products", "categories", "support", "settings"];
+export const RELEASED_SECTIONS: readonly AdminSection[] = [
+  "overview",
+  "orders",
+  "products",
+  "inventory",
+  "customers",
+  "categories",
+  "promotions",
+  "content",
+  "support",
+  "reviews",
+  "settings",
+];
 
 export function isReleased(section: AdminSection) {
   return RELEASED_SECTIONS.includes(section);
@@ -61,13 +71,6 @@ const promotionStatusLabels: Record<ApiPromotion["status"], string> = {
   active: "Đang chạy",
   paused: "Tạm dừng",
   ended: "Đã kết thúc",
-};
-
-const fundStatusLabels: Record<ApiFundRequest["status"], string> = {
-  pending: "Chờ duyệt",
-  processing: "Đang xử lý",
-  completed: "Hoàn tất",
-  rejected: "Từ chối",
 };
 
 const transactionTypeLabels: Record<AdminTransaction["type"], string> = {
@@ -240,21 +243,6 @@ function transactionToRow(transaction: AdminTransaction): DataRow {
   };
 }
 
-function fundRequestToRow(request: ApiFundRequest): DataRow {
-  const open = request.status === "pending" || request.status === "processing";
-  return {
-    id: request.code,
-    _ref: String(request.id),
-    _status: request.status,
-    _action: open ? "Duyệt yêu cầu" : "",
-    account: request.user?.email ?? "—",
-    type: request.type === "deposit" ? "Nạp tiền" : "Rút tiền",
-    value: formatCurrency(request.amount),
-    created: timeAgo(request.createdAt),
-    status: fundStatusLabels[request.status],
-  };
-}
-
 function flattenCategories(nodes: AdminCategory[], depth = 0): DataRow[] {
   return nodes.flatMap((node) => [
     {
@@ -385,8 +373,6 @@ async function fetchRows(section: ModuleSection): Promise<DataRow[]> {
       return (await adminApi.listUsers({ limit: 100, role: "customer" })).items.map(customerToRow);
     case "transactions":
       return (await adminApi.listTransactions({ limit: 100 })).items.map(transactionToRow);
-    case "deposits":
-      return (await adminApi.listFundRequests({ limit: 100 })).items.map(fundRequestToRow);
     case "categories":
       return flattenCategories(await adminApi.listCategories());
     case "promotions":
@@ -421,9 +407,6 @@ export async function runRowAction(section: ModuleSection, row: DataRow): Promis
       await adminApi.setUserStatus(id, nextActive);
       return nextActive ? `${row.name} đã được mở khóa.` : `${row.name} đã bị tạm khóa.`;
     }
-    case "deposits":
-      await adminApi.approveFundRequest(id);
-      return `${row.id} đã được duyệt, số dư khách hàng đã cập nhật.`;
     case "categories": {
       const nextVisible = row._status !== "visible";
       await adminApi.updateCategory(id, { isVisible: nextVisible });
@@ -611,6 +594,7 @@ export function takeQueuedToast(): string | null {
 }
 
 export function sectionForNotification(notification: AdminNotification): AdminSection {
-  const section = notification.section as AdminSection | null;
-  return section ?? "overview";
+  const section = notification.section as string | null;
+  if (section === "deposits") return "overview";
+  return (section as AdminSection | null) ?? "overview";
 }

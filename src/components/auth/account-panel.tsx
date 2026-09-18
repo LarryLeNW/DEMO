@@ -10,9 +10,16 @@ import { RecentOrders } from "@/components/orders/recent-orders";
 import { roleLabels, type AuthUser } from "@/lib/api/auth";
 
 type Tab = "login" | "register";
+type AccountPanelVariant = "drawer" | "page";
 
 /** Content of the "Tài khoản" drawer: login/register when signed out, profile when signed in. */
-export function AccountPanel({ onNavigate }: { onNavigate?: () => void }) {
+export function AccountPanel({
+  onNavigate,
+  variant = "drawer",
+}: {
+  onNavigate?: () => void;
+  variant?: AccountPanelVariant;
+}) {
   const router = useRouter();
   const { status, user, logout } = useAuth();
   const [tab, setTab] = useState<Tab>("login");
@@ -46,7 +53,7 @@ export function AccountPanel({ onNavigate }: { onNavigate?: () => void }) {
       .join("");
 
     return (
-      <div className="flex-1 overflow-auto p-5">
+      <div className={variant === "page" ? "p-0" : "flex-1 overflow-auto p-5"}>
         <div className="flex items-center gap-3 rounded-md bg-surface-muted p-4">
           <span className="grid size-12 shrink-0 place-items-center rounded-full bg-primary text-[15px] font-black text-white">
             {initials || "U"}
@@ -74,7 +81,12 @@ export function AccountPanel({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         </dl>
 
-        <RecentOrders email={user.email} onNavigate={onNavigate} />
+        <RecentOrders
+          email={user.email}
+          onNavigate={onNavigate}
+          limit={variant === "page" ? 20 : 5}
+          title={variant === "page" ? "Đơn hàng của bạn" : "Đơn hàng gần đây"}
+        />
 
         <div className="mt-5 grid gap-2">
           {user.role === "admin" ? (
@@ -112,7 +124,7 @@ export function AccountPanel({ onNavigate }: { onNavigate?: () => void }) {
   }
 
   return (
-    <div className="flex-1 overflow-auto p-5">
+    <div className={variant === "page" ? "p-0" : "flex-1 overflow-auto p-5"}>
       <div className="mb-5 grid grid-cols-2 rounded-md bg-slate-100 p-1 text-[13px] font-extrabold" role="tablist">
         {(
           [
