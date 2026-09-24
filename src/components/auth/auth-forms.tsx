@@ -165,19 +165,31 @@ export function RegisterForm({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    if (!phone.trim()) {
+      setError("Vui lòng nhập số điện thoại.");
+      return;
+    }
+
+    if (password !== passwordConfirm) {
+      setError("Mật khẩu xác nhận không khớp.");
+      return;
+    }
+
     setPending(true);
     try {
       const user = await register({
         fullName: fullName.trim(),
         email: email.trim(),
         password,
-        phone: phone.trim() || undefined,
+        phone: phone.trim(),
       });
       onSuccess?.(user);
     } catch (caught) {
@@ -218,7 +230,7 @@ export function RegisterForm({
         />
       </label>
       <label className={labelClass} htmlFor={`${idPrefix}-phone`}>
-        Số điện thoại <span className="font-medium text-muted">(không bắt buộc)</span>
+        Số điện thoại
         <input
           id={`${idPrefix}-phone`}
           className={inputClass}
@@ -226,6 +238,7 @@ export function RegisterForm({
           value={phone}
           autoComplete="tel"
           inputMode="tel"
+          required
           disabled={pending}
           onChange={(event) => setPhone(event.currentTarget.value)}
         />
@@ -236,6 +249,17 @@ export function RegisterForm({
           id={`${idPrefix}-password`}
           value={password}
           onChange={setPassword}
+          autoComplete="new-password"
+          minLength={8}
+          disabled={pending}
+        />
+      </label>
+      <label className={labelClass} htmlFor={`${idPrefix}-password-confirm`}>
+        Xác nhận mật khẩu
+        <PasswordInput
+          id={`${idPrefix}-password-confirm`}
+          value={passwordConfirm}
+          onChange={setPasswordConfirm}
           autoComplete="new-password"
           minLength={8}
           disabled={pending}

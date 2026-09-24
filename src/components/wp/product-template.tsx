@@ -285,7 +285,7 @@ export function ProductTemplate({ product, parentCategory }: ProductTemplateProp
             </span>
             <span className="inline-flex items-center gap-2">
               <CheckCircle2 size={17} className="text-primary" aria-hidden="true" />
-              Chuyển khoản / Zalo / số dư AIHUB
+              Chuyển khoản / Zalo / số dư Idhub
             </span>
           </div>
 

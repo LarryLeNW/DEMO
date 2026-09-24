@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AIHubLogo } from "@/components/aihub-logo";
+import { IdhubLogo } from "@/components/Idhub-logo";
 import { siteConfig } from "@/config/site";
 import type { ApiCategory } from "@/lib/api/catalog";
 import { phoneHref, type PublicSettings } from "@/lib/api/settings";
@@ -28,7 +28,7 @@ export function SiteFooter({
     <footer className="mt-10 border-t border-border bg-white">
       <div className="container-page grid gap-8 py-10 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
         <div>
-          <AIHubLogo size="md" name={name} />
+          <IdhubLogo size="md" name={name} />
           <p className="mt-3 max-w-md text-sm leading-7 text-muted">
             {settings["store.tagline"] ? `${name} — ${settings["store.tagline"]}. ` : ""}
             {siteConfig.description}

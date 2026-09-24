@@ -29,6 +29,8 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
+import type { Request } from 'express';
+import { Req } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Public } from '../common/decorators/public.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
@@ -47,6 +49,13 @@ import {
 import { SettingsService } from './settings.service.js';
 import { StatsService } from './stats.service.js';
 import { SettingGroup } from './system.enums.js';
+import { AnalyticsService } from './analytics.service.js';
+
+export class TrackPageViewDto {
+  @IsString() @MaxLength(64) sessionId: string;
+  @IsString() @MaxLength(500) path: string;
+  @IsOptional() @IsString() @MaxLength(1000) referrer?: string;
+}
 
 export class UpsertSettingDto {
   @ApiProperty({ description: 'Any JSON value' })
@@ -95,6 +104,22 @@ export class PublicSettingsController {
   })
   publicSettings() {
     return this.settings.publicMap();
+  }
+}
+
+@ApiTags('analytics')
+@Controller('analytics')
+export class PublicAnalyticsController {
+  constructor(private readonly analytics: AnalyticsService) {}
+
+  @Public()
+  @Post('page-view')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async pageView(@Body() dto: TrackPageViewDto, @Req() request: Request) {
+    await this.analytics.record({
+      ...dto,
+      userAgent: request.get('user-agent'),
+    });
   }
 }
 
@@ -180,12 +205,13 @@ export class AdminSystemController {
   imports: [
     TypeOrmModule.forFeature([Notification, Setting, Report, AuditLog]),
   ],
-  controllers: [PublicSettingsController, AdminSystemController],
+  controllers: [PublicSettingsController, PublicAnalyticsController, AdminSystemController],
   providers: [
     NotificationsService,
     SettingsService,
     StatsService,
     ReportsService,
+    AnalyticsService,
   ],
   exports: [NotificationsService, SettingsService],
 })

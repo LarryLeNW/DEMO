@@ -97,7 +97,7 @@ export const orderStatusLabels: Record<OrderStatus, string> = {
 export const paymentMethodLabels: Record<PaymentMethod, string> = {
   bank_transfer: "Chuyển khoản ngân hàng",
   zalo: "Liên hệ Zalo",
-  wallet: "Số dư AIHUB",
+  wallet: "Số dư IDHUB",
 };
 
 export const ordersApi = {

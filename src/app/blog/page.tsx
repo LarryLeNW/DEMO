@@ -7,7 +7,7 @@ import { serverFetch } from "@/lib/api/server";
 
 export const metadata: Metadata = {
   title: "Blog",
-  description: "Hướng dẫn sử dụng, so sánh và cập nhật các công cụ số tại AIHUB.",
+  description: "Hướng dẫn sử dụng, so sánh và cập nhật các công cụ số tại Idhub.",
 };
 
 export default async function BlogPage({

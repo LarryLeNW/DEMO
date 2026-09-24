@@ -322,7 +322,7 @@ function VariantCard({ draft, index, isEdit, canRemove, onChange, onRemove, onDu
       <div className={styles.variantBody}>
         <label>
           <span>Loại tài khoản</span>
-          <input list="aihub-account-types" value={draft.accountType} onChange={(event) => onChange({ accountType: event.target.value })} placeholder="Dùng riêng" />
+          <input list="Idhub-account-types" value={draft.accountType} onChange={(event) => onChange({ accountType: event.target.value })} placeholder="Dùng riêng" />
         </label>
         <label>
           <span>Thời hạn</span>
@@ -650,7 +650,7 @@ export function ProductEditor({ productId, notify }: { productId?: number; notif
 
   return (
     <div className={styles.management}>
-      <datalist id="aihub-account-types">
+      <datalist id="Idhub-account-types">
         {ACCOUNT_TYPE_SUGGESTIONS.map((suggestion) => <option key={suggestion} value={suggestion} />)}
       </datalist>
 

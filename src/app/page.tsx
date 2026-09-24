@@ -217,7 +217,7 @@ function TrustStrip() {
   const items = [
     ["01", "Giao đúng thông tin", "Tài khoản, thời hạn và hướng dẫn dùng được gửi rõ ràng sau khi đơn hoàn tất."],
     ["02", "Giá hiển thị minh bạch", "Bạn thấy giá trước khi đặt, không thêm phí ẩn ở bước thanh toán."],
-    ["03", "Bảo hành có theo dõi", "Nếu gói phát sinh lỗi trong thời hạn cam kết, AIHUB hỗ trợ kiểm tra và đổi theo chính sách."],
+    ["03", "Bảo hành có theo dõi", "Nếu gói phát sinh lỗi trong thời hạn cam kết, Idhub hỗ trợ kiểm tra và đổi theo chính sách."],
     ["04", "Có người hỗ trợ", "Khi cần kích hoạt, đổi thiết bị hoặc kiểm tra đơn, bạn có thể nhắn Zalo để được xử lý."],
   ];
 
@@ -225,7 +225,7 @@ function TrustStrip() {
     <section className="bg-[#f5f5f5] py-8">
       <div className="ktk-page-frame">
         <h2 className="mb-5 text-center text-[20px] font-extrabold text-slate-950">
-          Những điều AIHUB giữ rõ với khách hàng
+          Những điều Idhub giữ rõ với khách hàng
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {items.map(([step, title, desc]) => (
@@ -253,10 +253,10 @@ function NumbersPanel() {
     <section className="bg-[#f5f5f5] py-8">
       <div className="ktk-page-frame rounded-[10px] border border-[#d9f7e5] bg-[#f7fffa] px-4 py-8 shadow-[0_6px_24px_rgba(15,23,42,0.05)] lg:px-10">
         <p className="inline-flex rounded-full bg-white px-4 py-1 text-[11px] font-extrabold uppercase text-[#15803d] shadow-sm">
-          Cách AIHUB vận hành đơn hàng
+          Cách Idhub vận hành đơn hàng
         </p>
         <h2 className="mt-4 max-w-[700px] text-[25px] font-extrabold leading-tight text-slate-950">
-          Không chỉ bán tài khoản, AIHUB làm rõ từng bước để bạn dễ kiểm tra và dùng ổn định hơn
+          Không chỉ bán tài khoản, Idhub làm rõ từng bước để bạn dễ kiểm tra và dùng ổn định hơn
         </h2>
         <p className="mt-3 max-w-[720px] text-[14px] leading-6 text-slate-600">
           Mỗi nhóm sản phẩm có cách giao và bảo hành khác nhau. Vì vậy các thông tin quan trọng được đặt ngay trong luồng mua hàng: loại gói, thời hạn, email nhận, cách kích hoạt và kênh hỗ trợ sau bán.
@@ -279,14 +279,14 @@ function CustomerReviews() {
   const reviews = [
     ["Cần dùng ngay trong ngày", "Các gói có sẵn được ưu tiên giao nhanh kèm hướng dẫn đăng nhập để khách kiểm tra ngay."],
     ["Chưa biết chọn nền tảng nào", "Đội hỗ trợ hỏi lại nhu cầu trước khi gợi ý, nhất là với nhóm AI, VPN và học tập."],
-    ["Gặp lỗi sau khi mua", "Khách gửi mã đơn và ảnh lỗi để AIHUB kiểm tra theo chính sách bảo hành của từng sản phẩm."],
+    ["Gặp lỗi sau khi mua", "Khách gửi mã đơn và ảnh lỗi để Idhub kiểm tra theo chính sách bảo hành của từng sản phẩm."],
   ];
 
   return (
     <section className="bg-[#f5f5f5] pb-10 pt-4">
       <div className="ktk-page-frame">
         <h2 className="text-center text-[22px] font-extrabold text-slate-950">
-          Những tình huống AIHUB thường hỗ trợ
+          Những tình huống Idhub thường hỗ trợ
         </h2>
         <div className="mt-6 grid gap-4 lg:grid-cols-3">
           {reviews.map(([name, text]) => (

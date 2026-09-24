@@ -27,7 +27,7 @@ export function BlogTemplate({ page, posts }: BlogTemplateProps) {
     <main className="bg-[#f5f5f5] text-slate-950">
       <section className="ktk-blog-frame pt-12 pb-9 md:pt-[70px]">
         <h1 className="text-[34px] font-extrabold leading-tight tracking-normal md:text-[42px]">
-          Blog AIHUB
+          Blog Idhub
         </h1>
         <p className="mt-3 max-w-[690px] text-[16px] font-medium leading-7 text-slate-600">{description}</p>
 

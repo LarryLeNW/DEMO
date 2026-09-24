@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -26,6 +27,8 @@ import {
 } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
+  ArrayUnique,
+  IsArray,
   IsDateString,
   IsEnum,
   IsInt,
@@ -35,12 +38,13 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { Role } from '../common/enums/role.enum.js';
 import { paginate } from '../common/utils/pagination.js';
+import { slugify } from '../common/utils/slug.js';
 import {
   ContentBlockType,
   ContentPlacement,
@@ -49,6 +53,7 @@ import {
 import { ContentBlock } from './entities/content-block.entity.js';
 import { Page } from './entities/page.entity.js';
 import { Post as BlogPost } from './entities/post.entity.js';
+import { PostCategory } from './entities/post-category.entity.js';
 
 // ------------------------------------------------------------------------ DTOs
 
@@ -87,6 +92,20 @@ export class CreateContentBlockDto {
 }
 
 export class UpdateContentBlockDto extends PartialType(CreateContentBlockDto) {}
+
+export class CreatePostDto {
+  @ApiProperty() @IsString() @MinLength(2) @MaxLength(255) title: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(190) slug?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() excerpt?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() contentHtml?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(500) featuredImage?: string;
+  @ApiPropertyOptional({ enum: PublishStatus }) @IsOptional() @IsEnum(PublishStatus) status?: PublishStatus;
+  @ApiPropertyOptional({ type: [Number] }) @IsOptional() @IsArray() @ArrayUnique() @IsInt({ each: true }) categoryIds?: number[];
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(255) seoTitle?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(500) seoDescription?: string;
+}
+
+export class UpdatePostDto extends PartialType(CreatePostDto) {}
 
 export class QueryContentDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: PublishStatus })
@@ -154,6 +173,8 @@ export class ContentAdminService implements OnApplicationBootstrap {
     @InjectRepository(ContentBlock)
     private readonly blocks: Repository<ContentBlock>,
     @InjectRepository(BlogPost) private readonly posts: Repository<BlogPost>,
+    @InjectRepository(PostCategory)
+    private readonly postCategories: Repository<PostCategory>,
     @InjectRepository(Page) private readonly pages: Repository<Page>,
   ) {}
 
@@ -240,6 +261,7 @@ export class ContentAdminService implements OnApplicationBootstrap {
     const qb = this.posts
       .createQueryBuilder('post')
       .leftJoinAndSelect('post.author', 'author')
+      .leftJoinAndSelect('post.categories', 'category')
       .orderBy('post.updatedAt', 'DESC');
     if (query.status)
       qb.andWhere('post.status = :status', { status: query.status });
@@ -256,6 +278,69 @@ export class ContentAdminService implements OnApplicationBootstrap {
       total,
       query,
     );
+  }
+
+  getPost(id: number) {
+    return this.posts.findOne({ where: { id }, relations: { author: true, categories: true } }).then((post) => {
+      if (!post) throw new NotFoundException(`Không tìm thấy bài viết #${id}`);
+      return post;
+    });
+  }
+
+  listPostCategories() {
+    return this.postCategories.find({ order: { sortOrder: 'ASC', name: 'ASC' } });
+  }
+
+  private async postSlug(value: string, excludeId?: number) {
+    const slug = slugify(value);
+    if (!slug) throw new ConflictException('Đường dẫn bài viết không hợp lệ.');
+    const existing = await this.posts.findOneBy({ slug });
+    if (existing && existing.id !== excludeId) throw new ConflictException('Đường dẫn bài viết đã tồn tại.');
+    return slug;
+  }
+
+  async createPost(dto: CreatePostDto, userId: number) {
+    const status = dto.status ?? PublishStatus.Draft;
+    const categories = dto.categoryIds?.length
+      ? await this.postCategories.findBy({ id: In(dto.categoryIds) })
+      : [];
+    return this.posts.save(this.posts.create({
+      title: dto.title.trim(),
+      slug: await this.postSlug(dto.slug?.trim() || dto.title),
+      excerpt: dto.excerpt?.trim() || null,
+      contentHtml: dto.contentHtml?.trim() || null,
+      featuredImage: dto.featuredImage?.trim() || null,
+      status,
+      authorId: userId,
+      publishedAt: status === PublishStatus.Published ? new Date() : null,
+      seoTitle: dto.seoTitle?.trim() || null,
+      seoDescription: dto.seoDescription?.trim() || null,
+      categories,
+    }));
+  }
+
+  async updatePost(id: number, dto: UpdatePostDto) {
+    const post = await this.getPost(id);
+    if (dto.title !== undefined) post.title = dto.title.trim();
+    if (dto.slug !== undefined) post.slug = await this.postSlug(dto.slug.trim() || post.title, id);
+    if (dto.excerpt !== undefined) post.excerpt = dto.excerpt.trim() || null;
+    if (dto.contentHtml !== undefined) post.contentHtml = dto.contentHtml.trim() || null;
+    if (dto.featuredImage !== undefined) post.featuredImage = dto.featuredImage.trim() || null;
+    if (dto.seoTitle !== undefined) post.seoTitle = dto.seoTitle.trim() || null;
+    if (dto.seoDescription !== undefined) post.seoDescription = dto.seoDescription.trim() || null;
+    if (dto.categoryIds !== undefined) post.categories = dto.categoryIds.length
+      ? await this.postCategories.findBy({ id: In(dto.categoryIds) })
+      : [];
+    if (dto.status !== undefined) {
+      post.status = dto.status;
+      if (dto.status === PublishStatus.Published && !post.publishedAt) post.publishedAt = new Date();
+    }
+    return this.posts.save(post);
+  }
+
+  async removePost(id: number) {
+    if (!(await this.posts.existsBy({ id }))) throw new NotFoundException(`Không tìm thấy bài viết #${id}`);
+    await this.posts.delete({ id });
   }
 
   async listPages(query: QueryContentDto) {
@@ -341,6 +426,32 @@ export class AdminContentController {
   @Get('posts')
   listPosts(@Query() query: QueryContentDto) {
     return this.content.listPosts(query);
+  }
+
+  @Get('posts/categories')
+  listPostCategories() {
+    return this.content.listPostCategories();
+  }
+
+  @Get('posts/:id')
+  getPost(@Param('id', ParseIntPipe) id: number) {
+    return this.content.getPost(id);
+  }
+
+  @Post('posts')
+  createPost(@Body() dto: CreatePostDto, @CurrentUser('id') userId: number) {
+    return this.content.createPost(dto, userId);
+  }
+
+  @Patch('posts/:id')
+  updatePost(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePostDto) {
+    return this.content.updatePost(id, dto);
+  }
+
+  @Delete('posts/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removePost(@Param('id', ParseIntPipe) id: number) {
+    await this.content.removePost(id);
   }
 
   @Patch('posts/:id/status/:status')

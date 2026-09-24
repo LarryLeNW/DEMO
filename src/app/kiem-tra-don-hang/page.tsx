@@ -4,7 +4,7 @@ import { OrderLookup } from "./order-lookup";
 
 export const metadata: Metadata = {
   title: "Kiểm tra đơn hàng",
-  description: "Tra cứu trạng thái đơn hàng AIHUB bằng mã đơn và email đặt hàng.",
+  description: "Tra cứu trạng thái đơn hàng Idhub bằng mã đơn và email đặt hàng.",
 };
 
 export default function OrderLookupPage() {

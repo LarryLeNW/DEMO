@@ -10,6 +10,7 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import type { ApiCategory } from "@/lib/api/catalog";
 import type { PublicSettings } from "@/lib/api/settings";
+import { API_URL } from "@/lib/api/client";
 
 type SiteShellClientProps = {
   children: ReactNode;
@@ -22,6 +23,22 @@ export function SiteShellClient({ children, categories, settings }: SiteShellCli
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [pathname]);
+
+  useEffect(() => {
+    if (pathname === "/admin" || pathname.startsWith("/admin/")) return;
+    const storageKey = "idhub-traffic-session";
+    let sessionId = sessionStorage.getItem(storageKey);
+    if (!sessionId) {
+      sessionId = crypto.randomUUID();
+      sessionStorage.setItem(storageKey, sessionId);
+    }
+    void fetch(`${API_URL}/analytics/page-view`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId, path: pathname, referrer: document.referrer }),
+      keepalive: true,
+    }).catch(() => undefined);
   }, [pathname]);
 
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {

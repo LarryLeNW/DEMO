@@ -112,7 +112,7 @@ export function PromotionForm({ promotionId, onClose, onSaved }: { promotionId?:
     >
       <div className={styles.formGrid}>
         <Field label="Tên chiến dịch" full><input value={name} onChange={(event) => setName(event.target.value)} placeholder="Khách hàng mới" autoFocus /></Field>
-        <Field label="Mã"><input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder="AIHUB10" /></Field>
+        <Field label="Mã"><input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder="Idhub10" /></Field>
         <Field label="Trạng thái">
           <select value={status} onChange={(event) => setStatus(event.target.value as ApiPromotion["status"])}>
             <option value="active">Đang chạy</option>

@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { LoaderCircle, LogOut, ShieldAlert } from "lucide-react";
-import { AIHubLogo } from "@/components/aihub-logo";
+import { IdhubLogo } from "@/components/Idhub-logo";
 import { LoginForm } from "@/components/auth/auth-forms";
 import { useAuth } from "@/components/auth/auth-provider";
 import { roleLabels } from "@/lib/api/auth";
@@ -27,7 +27,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
   if (status === "anonymous" || !user) {
     return (
       <GateFrame>
-        <AIHubLogo admin href="/admin" />
+        <IdhubLogo admin href="/admin" />
         <h1 className="mt-7 text-[22px] font-extrabold text-white">Đăng nhập quản trị</h1>
         <p className="mt-1.5 text-[13px] leading-5 text-[#93a0b6]">
           Chỉ tài khoản có vai trò quản trị viên mới truy cập được khu vực này.

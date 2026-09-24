@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LogoMark } from "@/components/aihub-logo";
+import { LogoMark } from "@/components/Idhub-logo";
 import styles from "./intro-splash.module.css";
 
 /** Total run time — keep in sync with the animation delays in the CSS module. */

@@ -25,7 +25,7 @@ export const DEFAULT_SETTINGS: SettingSeed[] = [
   {
     key: 'store.name',
     group: SettingGroup.Store,
-    value: 'AIHUB',
+    value: 'IDHUB',
     description: 'Tên cửa hàng',
     isPublic: true,
   },
@@ -206,6 +206,16 @@ export class SettingsService implements OnApplicationBootstrap {
         ),
       );
       this.logger.log(`Seeded ${missing.length} default settings`);
+    }
+
+    // Defaults only create missing rows, so migrate the previous brand value for
+    // existing installations without overwriting a name customized by an admin.
+    const storeName = await this.settings.findOneBy({ key: 'store.name' });
+    if (storeName?.value === 'AIHUB') {
+      storeName.value = 'IDHUB';
+      storeName.updatedById = null;
+      await this.settings.save(storeName);
+      this.logger.log('Migrated store.name from AIHUB to IDHUB');
     }
   }
 

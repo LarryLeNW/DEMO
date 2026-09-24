@@ -1,4 +1,4 @@
-export const brandName = "AIHUB";
+export const brandName = "IDHUB";
 export const contactPhone = "0931729316";
 export const contactPhoneDisplay = "0931 729 316";
 export const contactEmail = "larrylenw@gmail.com";

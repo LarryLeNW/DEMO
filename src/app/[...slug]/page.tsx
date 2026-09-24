@@ -81,7 +81,7 @@ export async function generateMetadata(props: PageProps<"/[...slug]">): Promise<
       };
     case "page":
       return {
-        title: resolved.page.slug === "gioi-thieu" ? "Giới thiệu AIHUB" : resolved.page.title,
+        title: resolved.page.slug === "gioi-thieu" ? "Giới thiệu Idhub" : resolved.page.title,
         description: replaceBrandText(resolved.page.excerpt ?? ""),
       };
   }

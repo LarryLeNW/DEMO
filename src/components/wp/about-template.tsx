@@ -68,13 +68,13 @@ export function AboutTemplate({ page }: AboutTemplateProps) {
         <div className="ktk-page-frame grid gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:py-12">
           <div>
             <p className="inline-flex rounded-full bg-[#ecfdf5] px-4 py-1 text-[12px] font-extrabold uppercase text-[#15803d]">
-              Giới thiệu AIHUB
+              Giới thiệu Idhub
             </p>
             <h1 className="mt-5 max-w-[760px] text-[34px] font-extrabold leading-tight text-slate-950 lg:text-[44px]">
               Nơi mua tài khoản số rõ thông tin, dễ nhận hàng và có hỗ trợ sau bán
             </h1>
             <p className="mt-4 max-w-[720px] text-[16px] leading-7 text-slate-600">
-              AIHUB cung cấp tài khoản premium, công cụ AI và phần mềm bản quyền cho người dùng cá nhân, freelancer, team nhỏ và người học. Mục tiêu của trang không phải là liệt kê thật nhiều con số, mà là giúp bạn biết mình đang mua gì, nhận bằng cách nào và cần liên hệ ai khi phát sinh vấn đề.
+              Idhub cung cấp tài khoản premium, công cụ AI và phần mềm bản quyền cho người dùng cá nhân, freelancer, team nhỏ và người học. Mục tiêu của trang không phải là liệt kê thật nhiều con số, mà là giúp bạn biết mình đang mua gì, nhận bằng cách nào và cần liên hệ ai khi phát sinh vấn đề.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
@@ -121,7 +121,7 @@ export function AboutTemplate({ page }: AboutTemplateProps) {
         <div className="ktk-page-frame">
           <div className="grid gap-8 lg:grid-cols-[330px_minmax(0,1fr)]">
             <div>
-              <p className="text-[12px] font-extrabold uppercase text-[#15803d]">AIHUB làm gì?</p>
+              <p className="text-[12px] font-extrabold uppercase text-[#15803d]">Idhub làm gì?</p>
               <h2 className="mt-2 text-[25px] font-extrabold leading-tight text-slate-950">
                 Gom các công cụ số phổ biến vào một nơi dễ mua hơn
               </h2>
@@ -149,7 +149,7 @@ export function AboutTemplate({ page }: AboutTemplateProps) {
               Tập trung vào đơn hàng thật, không phóng đại bằng số liệu khó kiểm chứng
             </h2>
             <p className="mt-3 text-[14px] leading-6 text-slate-600">
-              Mỗi ngày AIHUB xử lý các đơn có sẵn, đơn nâng cấp và yêu cầu bảo hành. Điều quan trọng là thông tin phải dễ hiểu, khách nhận đúng thứ đã mua và có đường liên hệ khi cần kiểm tra lại.
+              Mỗi ngày Idhub xử lý các đơn có sẵn, đơn nâng cấp và yêu cầu bảo hành. Điều quan trọng là thông tin phải dễ hiểu, khách nhận đúng thứ đã mua và có đường liên hệ khi cần kiểm tra lại.
             </p>
           </div>
 
@@ -201,7 +201,7 @@ export function AboutTemplate({ page }: AboutTemplateProps) {
                 Thanh toán và thông tin đơn
               </div>
               <p className="mt-2 text-[13px] leading-5 text-slate-600">
-                Luôn kiểm tra email nhận hàng, số điện thoại và ghi chú trước khi thanh toán. Đây là thông tin AIHUB dùng để giao tài khoản và hỗ trợ sau mua.
+                Luôn kiểm tra email nhận hàng, số điện thoại và ghi chú trước khi thanh toán. Đây là thông tin Idhub dùng để giao tài khoản và hỗ trợ sau mua.
               </p>
             </div>
           </div>
@@ -213,7 +213,7 @@ export function AboutTemplate({ page }: AboutTemplateProps) {
           <div>
             <h2 className="text-[22px] font-extrabold text-slate-950">Cần chọn gói phù hợp?</h2>
             <p className="mt-2 max-w-[680px] text-[14px] leading-6 text-slate-600">
-              Gửi nhu cầu sử dụng, thiết bị đang dùng và thời hạn mong muốn. AIHUB sẽ gợi ý theo nhu cầu thực tế thay vì chỉ đẩy gói đắt nhất.
+              Gửi nhu cầu sử dụng, thiết bị đang dùng và thời hạn mong muốn. Idhub sẽ gợi ý theo nhu cầu thực tế thay vì chỉ đẩy gói đắt nhất.
             </p>
             <p className="mt-2 text-[12px] font-semibold text-slate-400">Cập nhật nội dung: {updatedAt}</p>
           </div>

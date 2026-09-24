@@ -8,6 +8,7 @@ import {
   type AdminCustomer,
   type AdminInventoryRow,
   type AdminNotification,
+  type AdminPost,
   type AdminProduct,
   type AdminReport,
   type AdminReview,
@@ -24,6 +25,7 @@ import { formatCurrency } from "@/lib/format";
 
 export type AdminSection =
   | "overview"
+  | "traffic"
   | "orders"
   | "products"
   | "inventory"
@@ -32,16 +34,18 @@ export type AdminSection =
   | "categories"
   | "promotions"
   | "content"
+  | "posts"
   | "support"
   | "reviews"
   | "reports"
   | "settings";
 
-export type ModuleSection = Exclude<AdminSection, "overview">;
+export type ModuleSection = Exclude<AdminSection, "overview" | "traffic">;
 
 /** Sections handed over in this release; every other section shows a "Đang hoàn thiện" placeholder. */
 export const RELEASED_SECTIONS: readonly AdminSection[] = [
   "overview",
+  "traffic",
   "orders",
   "products",
   "inventory",
@@ -49,6 +53,7 @@ export const RELEASED_SECTIONS: readonly AdminSection[] = [
   "categories",
   "promotions",
   "content",
+  "posts",
   "support",
   "reviews",
   "settings",
@@ -82,7 +87,7 @@ const transactionTypeLabels: Record<AdminTransaction["type"], string> = {
 };
 
 const channelLabels: Record<AdminTransaction["channel"], string> = {
-  wallet: "Số dư AIHUB",
+  wallet: "Số dư IDHUB",
   bank_transfer: "Chuyển khoản",
   zalo: "Zalo",
   manual: "Thủ công",
@@ -293,6 +298,21 @@ function contentBlockToRow(block: AdminContentBlock): DataRow {
   };
 }
 
+function postToRow(post: AdminPost): DataRow {
+  return {
+    id: `BV-${post.id}`,
+    _ref: String(post.id),
+    _status: post.status,
+    _action: post.status === "published" ? "Gỡ bài" : "Đăng bài",
+    title: post.title,
+    category: post.categories.map((category) => category.name).join(", ") || "—",
+    author: post.author?.fullName ?? "Hệ thống",
+    views: String(post.viewCount),
+    updated: formatDateTime(post.updatedAt),
+    status: publishLabels[post.status],
+  };
+}
+
 function ticketToRow(ticket: AdminTicket): DataRow {
   return {
     id: ticket.code,
@@ -379,6 +399,8 @@ async function fetchRows(section: ModuleSection): Promise<DataRow[]> {
       return (await adminApi.listPromotions({ limit: 100 })).items.map(promotionToRow);
     case "content":
       return (await adminApi.listContentBlocks({ limit: 100 })).items.map(contentBlockToRow);
+    case "posts":
+      return (await adminApi.listPosts({ limit: 100 })).items.map(postToRow);
     case "support":
       return (await adminApi.listTickets({ limit: 100 })).items.map(ticketToRow);
     case "reviews":
@@ -422,6 +444,11 @@ export async function runRowAction(section: ModuleSection, row: DataRow): Promis
       await adminApi.updateContentBlock(id, { status: next });
       return next === "published" ? `"${row.title}" đang hiển thị.` : `"${row.title}" đã gỡ xuống.`;
     }
+    case "posts": {
+      const next = row._status === "published" ? "draft" : "published";
+      await adminApi.setPostStatus(id, next);
+      return next === "published" ? `“${row.title}” đã được đăng.` : `“${row.title}” đã gỡ xuống.`;
+    }
     case "support":
       await adminApi.updateTicket(id, { status: "closed" });
       return `${row.id} đã đóng.`;
@@ -451,7 +478,7 @@ export function useAdminModuleRows(section: AdminSection): AdminRowsState {
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    if (section === "overview") return;
+    if (section === "overview" || section === "traffic") return;
     setLoading(true);
     try {
       setRows(await fetchRows(section));

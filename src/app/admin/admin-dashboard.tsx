@@ -17,6 +17,7 @@ import {
   Construction,
   ExternalLink,
   Eye,
+  FileText,
   Headphones,
   LayoutDashboard,
   LoaderCircle,
@@ -39,7 +40,7 @@ import {
   X,
   Trash2,
 } from "lucide-react";
-import { AIHubLogo } from "@/components/aihub-logo";
+import { IdhubLogo } from "@/components/Idhub-logo";
 import { useAuth } from "@/components/auth/auth-provider";
 import { adminApi, type AdminNotification, type AdminStats } from "@/lib/api/admin";
 import { confirmDanger, promptText } from "./forms/dialogs";
@@ -48,6 +49,7 @@ import { formatDateTime, timeAgo } from "@/lib/dates";
 import { formatCurrency } from "@/lib/format";
 import { CategoryForm } from "./forms/category-form";
 import { ContentBlockForm } from "./forms/content-block-form";
+import { BlogPostForm } from "./forms/blog-post-form";
 import { CustomerDetail } from "./forms/customer-detail";
 import { useDialogBehavior } from "./forms/modal";
 import { OrderDetail } from "./forms/order-detail";
@@ -93,7 +95,6 @@ const navGroups: { label: string; items: { id: ModuleId; label: string; icon: Lu
       { id: "orders", label: "Đơn hàng", icon: ShoppingCart, badge: "orders" },
       { id: "products", label: "Sản phẩm", icon: Package },
       { id: "categories", label: "Danh mục", icon: Tags },
-      { id: "inventory", label: "Kho hàng", icon: Warehouse, badge: "inventory" },
     ],
   },
   {
@@ -101,15 +102,10 @@ const navGroups: { label: string; items: { id: ModuleId; label: string; icon: Lu
     items: [{ id: "customers", label: "Khách hàng", icon: Users }],
   },
   {
-    label: "Tài chính",
-    items: [
-      { id: "transactions", label: "Giao dịch", icon: WalletCards },
-    ],
-  },
-  {
     label: "Tăng trưởng",
     items: [
-      { id: "promotions", label: "Khuyến mãi", icon: Megaphone },
+      { id: "traffic", label: "Traffic", icon: BarChart3 },
+      { id: "posts", label: "Blog", icon: FileText },
       { id: "content", label: "Nội dung", icon: SlidersHorizontal },
       { id: "reviews", label: "Đánh giá", icon: Star },
     ],
@@ -118,8 +114,6 @@ const navGroups: { label: string; items: { id: ModuleId; label: string; icon: Lu
 
 /** System modules live in the profile dropdown (topbar) instead of the sidebar. */
 const profileMenuItems: { id: ModuleId; label: string; icon: LucideIcon; badge?: keyof AdminStats["badges"]; hidden?: boolean }[] = [
-  { id: "support", label: "Hỗ trợ", icon: Headphones, badge: "support" },
-  { id: "reports", label: "Báo cáo", icon: BarChart3 },
   // Ẩn theo yêu cầu (01/09/2026) — bỏ `hidden` để mở lại; /admin/settings vẫn truy cập được qua URL.
   { id: "settings", label: "Cài đặt", icon: Settings, hidden: true },
 ];
@@ -185,7 +179,7 @@ const moduleDefinitions: Record<ModuleSection, ModuleDefinition> = {
   },
   transactions: {
     title: "Quản lý giao dịch",
-    description: "Sổ cái ví AIHUB: thanh toán, nạp, rút, hoàn tiền và điều chỉnh.",
+    description: "Sổ cái ví Idhub: thanh toán, nạp, rút, hoàn tiền và điều chỉnh.",
     icon: WalletCards,
     columns: [
       { key: "id", label: "Mã GD" },
@@ -236,6 +230,21 @@ const moduleDefinitions: Record<ModuleSection, ModuleDefinition> = {
       { key: "channel", label: "Vị trí" },
       { key: "updated", label: "Cập nhật" },
       { key: "owner", label: "Người sửa" },
+      { key: "status", label: "Trạng thái" },
+    ],
+  },
+  posts: {
+    title: "Quản lý blog",
+    description: "Tạo, biên tập và xuất bản bài viết trên cửa hàng.",
+    icon: FileText,
+    createLabel: "Tạo bài viết",
+    columns: [
+      { key: "id", label: "Mã" },
+      { key: "title", label: "Tiêu đề" },
+      { key: "category", label: "Chuyên mục" },
+      { key: "author", label: "Tác giả" },
+      { key: "views", label: "Lượt xem" },
+      { key: "updated", label: "Cập nhật" },
       { key: "status", label: "Trạng thái" },
     ],
   },
@@ -341,7 +350,7 @@ function AdminSidebar({
       <button className={`${styles.backdrop} ${open ? styles.backdropOpen : ""}`} onClick={onClose} aria-label="Đóng menu" />
       <aside className={`${styles.sidebar} ${open ? styles.sidebarOpen : ""}`}>
         <div className={styles.sidebarHeader}>
-          <AIHubLogo href="/admin" size="sm" admin />
+          <IdhubLogo href="/admin" size="sm" admin />
           <button className={styles.closeMenu} onClick={onClose} aria-label="Đóng menu"><X size={20} /></button>
         </div>
         <nav className={styles.nav} aria-label="Điều hướng quản trị">
@@ -393,10 +402,7 @@ function greeting() {
 }
 
 /** Sections whose rows can be deleted from the table (soft delete server-side). */
-const DELETABLE = new Set<ModuleId>(["products", "categories", "promotions", "content"]);
-
-/** Modules not handed over in this release (derived from the nav + profile menu so they never drift apart). */
-const pendingModules = [...navGroups.flatMap((group) => group.items), ...profileMenuItems].filter((item) => !isReleased(item.id));
+const DELETABLE = new Set<ModuleId>(["products", "categories", "promotions", "content", "posts"]);
 
 function PendingSection({ label, onBack }: { label: string; onBack: () => void }) {
   return (
@@ -439,6 +445,9 @@ function Overview({
   const chartMax = Math.max(1, ...(stats?.revenueByDay.map((day) => day.revenue) ?? [1]));
   const periodRevenue = stats?.revenueByDay.reduce((sum, day) => sum + day.revenue, 0) ?? 0;
   const periodOrders = stats?.revenueByDay.reduce((sum, day) => sum + day.orders, 0) ?? 0;
+  const trafficMax = Math.max(1, ...(stats?.traffic.byDay.map((day) => day.views) ?? [1]));
+  const deviceTotal = (stats?.traffic.devices.desktop ?? 0) + (stats?.traffic.devices.mobile ?? 0);
+  const mobilePercent = deviceTotal ? Math.round(((stats?.traffic.devices.mobile ?? 0) / deviceTotal) * 100) : 0;
 
   const quickActions = [
     { label: "Thêm sản phẩm", detail: "Nhập kho, giá bán, biến thể", icon: Plus, id: "products" as ModuleId },
@@ -462,7 +471,7 @@ function Overview({
             <ShieldCheck size={15} /> {statsError ? "Không kết nối được máy chủ thống kê" : stats ? `Số liệu cập nhật ${timeAgo(stats.generatedAt)}` : "Đang tải số liệu…"}
           </span>
           <h1>{greeting()}, {userName}</h1>
-          <p>Đây là tình hình hoạt động của AIHUB hôm nay, {dateLabel}.</p>
+          <p>Đây là tình hình hoạt động của Idhub hôm nay, {dateLabel}.</p>
         </div>
         <div className={styles.heroActions}>
           <button className={styles.secondaryButton} onClick={onRefresh}><RefreshCw size={17} /> Làm mới</button>
@@ -529,16 +538,32 @@ function Overview({
       </section>
 
       <section className={styles.lowerGrid}>
-        <article className={`${styles.panel} ${styles.ordersPanel}`}>
+        <article className={`${styles.panel} ${styles.trafficPanel}`}>
           <div className={styles.panelHeader}>
-            <div><h2>Phân hệ đang hoàn thiện</h2><p>Sẽ được bàn giao ở đợt tiếp theo</p></div>
-            <span className={styles.pendingTag}><Construction size={13} /> Đang hoàn thiện</span>
+            <div><h2>Traffic website</h2><p>Lượt truy cập trong 14 ngày gần nhất</p></div>
+            <span className={styles.trafficLive}><i /> Đang ghi nhận</span>
           </div>
-          <div className={styles.pendingModules}>
-            {pendingModules.map((item) => {
-              const Icon = item.icon;
-              return <div key={item.id}><span><Icon size={16} /></span><strong>{item.label}</strong></div>;
-            })}
+          <div className={styles.trafficSummary}>
+            <div><span>Lượt xem hôm nay</span><strong>{stats?.traffic.today.views.toLocaleString("vi-VN") ?? "—"}</strong></div>
+            <div><span>Khách hôm nay</span><strong>{stats?.traffic.today.visitors.toLocaleString("vi-VN") ?? "—"}</strong></div>
+            <div><span>So với hôm qua</span><strong className={(stats?.traffic.today.changePercent ?? 0) >= 0 ? styles.up : styles.down}>{stats?.traffic.today.changePercent == null ? "Mới" : `${stats.traffic.today.changePercent >= 0 ? "+" : ""}${stats.traffic.today.changePercent}%`}</strong></div>
+            <div><span>Thiết bị mobile</span><strong>{mobilePercent}%</strong></div>
+          </div>
+          <div className={styles.trafficBody}>
+            <div className={styles.trafficChart} aria-label="Biểu đồ traffic 14 ngày">
+              {(stats?.traffic.byDay ?? []).map((day) => (
+                <div key={day.date}>
+                  <span title={`${day.views} lượt xem · ${day.visitors} khách`} style={{ height: `${Math.max(3, Math.round((day.views / trafficMax) * 100))}%` }} />
+                  <small>{day.date.slice(8, 10)}/{day.date.slice(5, 7)}</small>
+                </div>
+              ))}
+            </div>
+            <div className={styles.topPages}>
+              <h3>Trang được xem nhiều</h3>
+              {stats?.traffic.topPages.length ? stats.traffic.topPages.map((page, index) => (
+                <div key={page.path}><span>{index + 1}</span><code>{page.path}</code><strong>{page.views.toLocaleString("vi-VN")}</strong></div>
+              )) : <p className={styles.emptyNote}>{stats ? "Chưa có dữ liệu truy cập." : "Đang tải…"}</p>}
+            </div>
           </div>
         </article>
 
@@ -569,6 +594,52 @@ function Overview({
           </article>
         </div>
       </section>
+    </div>
+  );
+}
+
+function TrafficView({ stats, error, onRefresh }: { stats: AdminStats | null; error: string | null; onRefresh: () => void }) {
+  const trafficMax = Math.max(1, ...(stats?.traffic.byDay.map((day) => day.views) ?? [1]));
+  const devices = stats?.traffic.devices;
+  const deviceTotal = (devices?.desktop ?? 0) + (devices?.mobile ?? 0);
+  const mobilePercent = deviceTotal ? Math.round(((devices?.mobile ?? 0) / deviceTotal) * 100) : 0;
+
+  return (
+    <div>
+      <section className={styles.pageTitle}>
+        <div className={styles.titleIcon}><BarChart3 size={23} /></div>
+        <div><h1>Thống kê traffic</h1><p>Theo dõi lượt xem, khách truy cập và các trang được quan tâm.</p></div>
+        <div className={styles.pageActions}><button className={styles.secondaryButton} onClick={onRefresh}><RefreshCw size={16} /> Làm mới</button></div>
+      </section>
+      {error ? <p role="alert" className={styles.inlineAlert}>{error}</p> : null}
+      <article className={`${styles.panel} ${styles.trafficPagePanel}`}>
+        <div className={styles.panelHeader}>
+          <div><h2>Traffic 14 ngày gần nhất</h2><p>Dữ liệu first-party từ storefront IDHUB</p></div>
+          <span className={styles.trafficLive}><i /> Đang ghi nhận</span>
+        </div>
+        <div className={styles.trafficSummary}>
+          <div><span>Lượt xem hôm nay</span><strong>{stats?.traffic.today.views.toLocaleString("vi-VN") ?? "—"}</strong></div>
+          <div><span>Khách hôm nay</span><strong>{stats?.traffic.today.visitors.toLocaleString("vi-VN") ?? "—"}</strong></div>
+          <div><span>So với hôm qua</span><strong className={(stats?.traffic.today.changePercent ?? 0) >= 0 ? styles.up : styles.down}>{stats?.traffic.today.changePercent == null ? "Mới" : `${stats.traffic.today.changePercent >= 0 ? "+" : ""}${stats.traffic.today.changePercent}%`}</strong></div>
+          <div><span>Mobile / Desktop</span><strong>{mobilePercent}% / {100 - mobilePercent}%</strong></div>
+        </div>
+        <div className={styles.trafficBody}>
+          <div className={styles.trafficChart} aria-label="Biểu đồ traffic 14 ngày">
+            {(stats?.traffic.byDay ?? []).map((day) => (
+              <div key={day.date}>
+                <span title={`${day.views} lượt xem · ${day.visitors} khách`} style={{ height: `${Math.max(3, Math.round((day.views / trafficMax) * 100))}%` }} />
+                <small>{day.date.slice(8, 10)}/{day.date.slice(5, 7)}</small>
+              </div>
+            ))}
+          </div>
+          <div className={styles.topPages}>
+            <h3>Trang được xem nhiều</h3>
+            {stats?.traffic.topPages.length ? stats.traffic.topPages.map((page, index) => (
+              <div key={page.path}><span>{index + 1}</span><code>{page.path}</code><strong>{page.views.toLocaleString("vi-VN")}</strong></div>
+            )) : <p className={styles.emptyNote}>{stats ? "Chưa có dữ liệu truy cập." : "Đang tải…"}</p>}
+          </div>
+        </div>
+      </article>
     </div>
   );
 }
@@ -875,7 +946,7 @@ export function AdminDashboard({
     router.push(id === "overview" ? "/admin" : `/admin/${id}`);
   };
 
-  const EDITABLE_SECTIONS: ModuleSection[] = ["categories", "promotions", "content", "settings", "orders", "support", "customers"];
+  const EDITABLE_SECTIONS: ModuleSection[] = ["categories", "promotions", "content", "posts", "settings", "orders", "support", "customers"];
 
   /** "Xem chi tiết": products open their own page; other sections open a dialog or the generic detail. */
   const inspectRow = (row: DataRow) => {
@@ -883,7 +954,7 @@ export function AdminDashboard({
       router.push(`/admin/products/${row._ref}`);
       return;
     }
-    if (active !== "overview" && EDITABLE_SECTIONS.includes(active) && row._ref) {
+    if (active !== "overview" && active !== "traffic" && EDITABLE_SECTIONS.includes(active) && row._ref) {
       setEditor({ section: active, id: active === "settings" ? row.id : Number(row._ref) });
       return;
     }
@@ -899,7 +970,7 @@ export function AdminDashboard({
       router.push("/admin/products/new");
       return;
     }
-    if (active !== "overview") setEditor({ section: active });
+    if (active !== "overview" && active !== "traffic") setEditor({ section: active });
   };
 
   const afterEditorSaved = async (message: string) => {
@@ -910,7 +981,7 @@ export function AdminDashboard({
 
   const sectionLabel = [...navGroups.flatMap((group) => group.items), ...profileMenuItems].find((item) => item.id === active)?.label ?? "Quản trị";
   const activeLabel = productEditor ? (productEditor.id ? `${sectionLabel} › SP-${productEditor.id}` : `${sectionLabel} › Thêm mới`) : sectionLabel;
-  const definition = active === "overview" ? null : moduleDefinitions[active];
+  const definition = active === "overview" || active === "traffic" ? null : moduleDefinitions[active];
   const rows = remote.rows ?? [];
 
   const openNotification = (notification: AdminNotification) => {
@@ -945,12 +1016,16 @@ export function AdminDashboard({
   /** Xóa mềm từ bảng: bản ghi bị ẩn khỏi cửa hàng, dữ liệu vẫn giữ trong DB. */
   const deleteRow = async (row: DataRow) => {
     const id = Number(row._ref);
-    if (!(await confirmDanger(`Xóa ${row.id}?`, "Bản ghi sẽ bị ẩn khỏi cửa hàng (xóa mềm), dữ liệu vẫn được giữ lại."))) return;
+    const deleteMessage = active === "posts"
+      ? "Bài viết sẽ bị xóa khỏi blog."
+      : "Bản ghi sẽ bị ẩn khỏi cửa hàng (xóa mềm), dữ liệu vẫn được giữ lại.";
+    if (!(await confirmDanger(`Xóa ${row.id}?`, deleteMessage))) return;
     try {
       if (active === "products") await adminApi.deleteProduct(id);
       else if (active === "categories") await adminApi.deleteCategory(id);
       else if (active === "promotions") await adminApi.deletePromotion(id);
       else if (active === "content") await adminApi.deleteContentBlock(id);
+      else if (active === "posts") await adminApi.deletePost(id);
       else return;
       notify(`Đã xóa ${row.id}.`);
       setDetailRow(null);
@@ -961,7 +1036,7 @@ export function AdminDashboard({
   };
 
   const updateRow = async (row: DataRow) => {
-    if (!definition || active === "overview" || !row._action) return;
+    if (!definition || active === "overview" || active === "traffic" || !row._action) return;
     try {
       if (active === "orders") {
         await advanceOrder(row);
@@ -1062,7 +1137,7 @@ export function AdminDashboard({
                       </button>
                     );
                   })}
-                  <hr />
+                  {profileMenuItems.some((item) => !item.hidden) && <hr />}
                   <button role="menuitem" className={styles.profileMenuLogout} onClick={() => { setProfileOpen(false); void handleLogout(); }}>
                     <LogOut size={17} />
                     <span>Đăng xuất</span>
@@ -1078,6 +1153,8 @@ export function AdminDashboard({
             <ProductEditor key={productEditor.id ?? "new"} productId={productEditor.id} notify={notify} />
           ) : active === "overview" ? (
             <Overview stats={stats} statsError={statsError} userName={user?.fullName ?? "Quản trị viên"} onNavigate={selectModule} onOpenProduct={(id) => router.push(`/admin/products/${id}`)} onRefresh={() => { void refreshStats(); void notifications.refresh(); notify("Đã làm mới số liệu."); }} />
+          ) : active === "traffic" ? (
+            <TrafficView stats={stats} error={statsError} onRefresh={() => { void refreshStats(); notify("Đã làm mới traffic."); }} />
           ) : !isReleased(active) ? (
             <PendingSection label={sectionLabel} onBack={() => selectModule("overview")} />
           ) : definition && (
@@ -1090,6 +1167,7 @@ export function AdminDashboard({
       {editor?.section === "categories" && <CategoryForm categoryId={editor.id as number | undefined} onClose={() => setEditor(null)} onSaved={(message) => void afterEditorSaved(message)} />}
       {editor?.section === "promotions" && <PromotionForm promotionId={editor.id as number | undefined} onClose={() => setEditor(null)} onSaved={(message) => void afterEditorSaved(message)} />}
       {editor?.section === "content" && <ContentBlockForm blockId={editor.id as number | undefined} onClose={() => setEditor(null)} onSaved={(message) => void afterEditorSaved(message)} />}
+      {editor?.section === "posts" && <BlogPostForm postId={editor.id as number | undefined} onClose={() => setEditor(null)} onSaved={(message) => void afterEditorSaved(message)} />}
       {editor?.section === "settings" && typeof editor.id === "string" && <SettingForm settingKey={editor.id} onClose={() => setEditor(null)} onSaved={(message) => void afterEditorSaved(message)} />}
       {editor?.section === "orders" && typeof editor.id === "number" && <OrderDetail orderId={editor.id} onClose={() => setEditor(null)} onChanged={(message) => { notify(message); void Promise.all([remote.refresh(), refreshStats()]); }} />}
       {editor?.section === "support" && typeof editor.id === "number" && <TicketDetail ticketId={editor.id} onClose={() => setEditor(null)} onChanged={(message) => { notify(message); void Promise.all([remote.refresh(), refreshStats()]); }} />}

@@ -68,21 +68,28 @@ export function RecentOrders({
             <li key={order.id}>
               <Link
                 href={`/kiem-tra-don-hang?code=${encodeURIComponent(order.code)}&email=${encodeURIComponent(email)}`}
-                className="focus-ring flex items-center gap-3 p-3 text-[13px] transition hover:bg-slate-50"
+                className="focus-ring flex items-center gap-2 p-3 text-[13px] transition hover:bg-slate-50 sm:gap-3"
                 onClick={onNavigate}
               >
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-extrabold text-slate-950">#{order.code}</span>
-                    <OrderStatusBadge status={order.status} />
+                  <div className="flex items-start justify-between gap-2 sm:justify-start">
+                    <div className="flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
+                      <span className="max-w-full truncate font-extrabold text-slate-950">#{order.code}</span>
+                      <OrderStatusBadge status={order.status} />
+                    </div>
+                    <span className="shrink-0 whitespace-nowrap font-extrabold text-slate-900 sm:hidden">
+                      {formatCurrency(order.total)}
+                    </span>
                   </div>
                   <p className="mt-0.5 truncate text-muted">
                     {order.items.map((item) => item.productName).join(", ")}
                   </p>
                   <p className="text-[11px] text-muted">{timeAgo(order.createdAt)}</p>
                 </div>
-                <span className="font-extrabold text-slate-900">{formatCurrency(order.total)}</span>
-                <ChevronRight size={16} className="text-slate-400" aria-hidden="true" />
+                <span className="hidden shrink-0 whitespace-nowrap font-extrabold text-slate-900 sm:inline">
+                  {formatCurrency(order.total)}
+                </span>
+                <ChevronRight size={16} className="shrink-0 text-slate-400" aria-hidden="true" />
               </Link>
             </li>
           ))}

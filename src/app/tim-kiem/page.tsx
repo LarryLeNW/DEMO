@@ -6,7 +6,7 @@ import { apiProductToCommerce } from "@/lib/commerce-mapping";
 
 export const metadata: Metadata = {
   title: "Tìm kiếm",
-  description: "Tìm kiếm sản phẩm tại AIHUB.",
+  description: "Tìm kiếm sản phẩm tại Idhub.",
 };
 
 export default async function SearchPage({

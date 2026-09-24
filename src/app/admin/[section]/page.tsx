@@ -3,11 +3,13 @@ import { notFound } from "next/navigation";
 import { AdminDashboard, type AdminSection } from "../admin-dashboard";
 
 const sections: AdminSection[] = [
+  "traffic",
   "orders",
   "products",
   "inventory",
   "customers",
   "transactions",
+  "posts",
   "categories",
   "promotions",
   "content",

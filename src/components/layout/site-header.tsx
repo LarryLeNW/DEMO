@@ -31,7 +31,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { AIHubLogo } from "@/components/aihub-logo";
+import { IdhubLogo } from "@/components/Idhub-logo";
 import { useCommerce } from "@/components/commerce/commerce-provider";
 import { catalogApi, type ApiCategory, type ApiProduct } from "@/lib/api/catalog";
 import { phoneHref, type PublicSettings } from "@/lib/api/settings";
@@ -227,9 +227,9 @@ export function SiteHeader({ categories, settings }: SiteHeaderProps) {
             >
               <Menu size={24} aria-hidden="true" />
             </button>
-            <AIHubLogo
+            <IdhubLogo
               size="sm"
-              name={settings["store.name"] ?? "AIHUB"}
+              name={"Idhub"}
               tagline={settings["store.tagline"] ?? "Tài khoản số giá tốt"}
               className="focus-ring absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
             />
@@ -250,9 +250,9 @@ export function SiteHeader({ categories, settings }: SiteHeaderProps) {
 
         <div className="hidden lg:block">
           <div className="mx-auto flex h-[80px] max-w-[1222px] items-center gap-7 px-[15px]">
-            <AIHubLogo
+            <IdhubLogo
               size="lg"
-              name={settings["store.name"] ?? "AIHUB"}
+              name={settings["store.name"] ?? "Idhub"}
               tagline={settings["store.tagline"] ?? "Tài khoản số giá tốt"}
               className="focus-ring w-53.5 shrink-0"
             />

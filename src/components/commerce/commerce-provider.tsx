@@ -468,7 +468,7 @@ export function CheckoutPageContent() {
         <p className="text-[12px] font-extrabold uppercase text-primary-strong">Thanh toán đơn hàng</p>
         <h1 className="mt-1 text-[30px] font-extrabold text-slate-950">Hoàn tất đặt hàng</h1>
         <p className="mt-2 max-w-[680px] text-[15px] leading-6 text-slate-600">
-          Đăng nhập để AIHUB lưu đơn vào tài khoản, sau đó quét QR chuyển khoản đúng số tiền và nội dung.
+          Đăng nhập để Idhub lưu đơn vào tài khoản, sau đó quét QR chuyển khoản đúng số tiền và nội dung.
         </p>
       </div>
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,760px)_360px]">

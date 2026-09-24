@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { AnalyticsService, type TrafficStats } from './analytics.service.js';
 
 export type AdminStats = {
   generatedAt: string;
@@ -35,6 +36,7 @@ export type AdminStats = {
     deposits: number;
     support: number;
   };
+  traffic: TrafficStats;
 };
 
 const PAID_STATUSES = "('processing','completed')";
@@ -42,7 +44,10 @@ const PAID_STATUSES = "('processing','completed')";
 /** Numbers behind the admin overview and sidebar badges, computed straight from MySQL. */
 @Injectable()
 export class StatsService {
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly analytics: AnalyticsService,
+  ) {}
 
   async overview(): Promise<AdminStats> {
     const q = <T = Record<string, unknown>>(
@@ -142,6 +147,7 @@ export class StatsService {
     const newCustomersYesterday = Number(customersYesterday.n);
     const refundedCount = Number(refund.refunded ?? 0);
     const totalCount = Number(refund.total ?? 0);
+    const traffic = await this.analytics.overview();
 
     return {
       generatedAt: new Date().toISOString(),
@@ -180,6 +186,7 @@ export class StatsService {
         deposits: Number(badges.deposits),
         support: Number(badges.support),
       },
+      traffic,
     };
   }
 }

@@ -1,7 +1,7 @@
 import type { AuthUser } from "./auth";
 import { buildQuery, type ApiCategory, type ApiProduct, type ApiReview, type ApiVariant, type Paginated } from "./catalog";
 import { apiFetch } from "./client";
-import type { ApiContentBlock, ApiPage, ApiPost } from "./content";
+import type { ApiContentBlock, ApiPage, ApiPost, ApiPostCategory } from "./content";
 import type { ApiOrder, OrderStatus } from "./orders";
 
 export type AdminVariant = ApiVariant & {
@@ -97,6 +97,14 @@ export type AdminContentBlock = ApiContentBlock & {
   updatedBy?: Pick<AuthUser, "id" | "fullName"> | null;
 };
 
+export type AdminPost = ApiPost & {
+  status: "draft" | "published" | "archived";
+  contentHtml: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  author?: Pick<AuthUser, "id" | "fullName"> | null;
+};
+
 export type AdminTicketMessage = {
   id: number;
   authorType: "customer" | "staff" | "system";
@@ -175,6 +183,12 @@ export type AdminStats = {
   lowStock: { variantId: number; productId: number; sku: string; productName: string; available: number; threshold: number }[];
   recentActivity: { type: "order" | "fund_request" | "ticket" | "customer"; title: string; detail: string; at: string }[];
   badges: { orders: number; inventory: number; deposits: number; support: number };
+  traffic: {
+    today: { views: number; visitors: number; changePercent: number | null };
+    byDay: { date: string; views: number; visitors: number }[];
+    topPages: { path: string; views: number }[];
+    devices: { desktop: number; mobile: number };
+  };
 };
 
 // ------------------------------------------------------------------ inputs
@@ -252,6 +266,18 @@ export type ContentBlockInput = {
   status?: "draft" | "published" | "archived";
   startsAt?: string;
   endsAt?: string;
+};
+
+export type PostInput = {
+  title: string;
+  slug?: string;
+  excerpt?: string;
+  contentHtml?: string;
+  featuredImage?: string;
+  status?: AdminPost["status"];
+  categoryIds?: number[];
+  seoTitle?: string;
+  seoDescription?: string;
 };
 
 type PageParams = { page?: number; limit?: number; search?: string };
@@ -337,7 +363,14 @@ export const adminApi = {
     json<AdminContentBlock>(`/admin/content/blocks/${id}`, "PATCH", input),
   deleteContentBlock: (id: number) => json<void>(`/admin/content/blocks/${id}`, "DELETE"),
   listPosts: (params: PageParams & { status?: string } = {}) =>
-    apiFetch<Paginated<ApiPost>>(`/admin/content/posts${buildQuery(params)}`),
+    apiFetch<Paginated<AdminPost>>(`/admin/content/posts${buildQuery(params)}`),
+  getPost: (id: number) => apiFetch<AdminPost>(`/admin/content/posts/${id}`),
+  listPostCategories: () => apiFetch<ApiPostCategory[]>("/admin/content/posts/categories"),
+  createPost: (input: PostInput) => json<AdminPost>("/admin/content/posts", "POST", input),
+  updatePost: (id: number, input: Partial<PostInput>) => json<AdminPost>(`/admin/content/posts/${id}`, "PATCH", input),
+  deletePost: (id: number) => json<void>(`/admin/content/posts/${id}`, "DELETE"),
+  setPostStatus: (id: number, status: AdminPost["status"]) =>
+    json<AdminPost>(`/admin/content/posts/${id}/status/${status}`, "PATCH"),
   listPages: (params: PageParams & { status?: string } = {}) =>
     apiFetch<Paginated<ApiPage>>(`/admin/content/pages${buildQuery(params)}`),
 

@@ -25,7 +25,7 @@ export type PublicSettings = {
 export const DEFAULT_PUBLIC_SETTINGS: Required<
   Pick<PublicSettings, "store.name" | "store.tagline" | "store.hotline" | "store.zalo" | "store.email">
 > = {
-  "store.name": "AIHUB",
+  "store.name": "IDHUB",
   "store.tagline": "Tài khoản số giá tốt",
   "store.hotline": "0931 729 316",
   "store.zalo": "https://zalo.me/0931729316",

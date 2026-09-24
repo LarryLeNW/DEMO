@@ -1266,6 +1266,144 @@
   padding: 0 16px 13px;
 }
 
+.trafficLive {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #4ade80;
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.trafficLive i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 4px rgb(34 197 94 / 10%);
+}
+
+.trafficSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 16px;
+  border: 1px solid #222b3b;
+  border-radius: 10px;
+  background: #0d121a;
+}
+
+.trafficSummary > div {
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+}
+
+.trafficSummary > div + div {
+  border-left: 1px solid #222b3b;
+}
+
+.trafficSummary span {
+  color: #68758a;
+  font-size: 8px;
+}
+
+.trafficSummary strong {
+  color: #e8edf5;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+.trafficBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(220px, .8fr);
+  gap: 18px;
+  padding: 18px 16px 16px;
+}
+
+.trafficPagePanel {
+  margin-top: 18px;
+  padding-bottom: 4px;
+}
+
+.trafficPagePanel .trafficChart {
+  height: 300px;
+}
+
+.trafficChart {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(8px, 1fr));
+  align-items: end;
+  gap: 7px;
+  height: 210px;
+  padding: 15px 12px 0;
+  border-bottom: 1px solid #263043;
+  background: repeating-linear-gradient(to bottom, transparent 0, transparent 48px, #1b2432 49px);
+}
+
+.trafficChart > div {
+  display: grid;
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr) 25px;
+  align-items: end;
+  gap: 6px;
+}
+
+.trafficChart > div > span {
+  width: 100%;
+  min-height: 3px;
+  border-radius: 5px 5px 2px 2px;
+  background: linear-gradient(180deg, #2dd4bf, #0891b2);
+  box-shadow: 0 0 16px rgb(45 212 191 / 12%);
+}
+
+.trafficChart small {
+  color: #56637a;
+  font-size: 7px;
+  text-align: center;
+}
+
+.topPages h3 {
+  margin: 0 0 9px;
+  color: #dce3ec;
+  font-size: 11px;
+}
+
+.topPages > div {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  border-bottom: 1px solid #1d2634;
+}
+
+.topPages > div > span {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 6px;
+  background: rgb(34 197 94 / 10%);
+  color: #4ade80;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.topPages code {
+  overflow: hidden;
+  color: #9aa6b8;
+  font-family: inherit;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topPages strong {
+  color: #e2e8f0;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
 .activityList > div {
   position: relative;
   display: grid;
@@ -4263,4 +4401,237 @@
   border-color: rgb(19 209 231 / 55%);
   box-shadow: 0 0 0 3px rgb(19 209 231 / 12%);
   outline: none;
+}
+
+/* Compact admin forms on tablets, phones, and short laptop screens. */
+@media (max-width: 900px), (max-height: 760px) {
+  .modalLayer {
+    padding: 10px;
+  }
+
+  .modal {
+    max-height: calc(100dvh - 20px);
+    border-radius: 12px;
+  }
+
+  .modalHeader {
+    padding: 12px 14px;
+  }
+
+  .modalHeader h2 {
+    margin-top: 2px;
+    font-size: 16px;
+  }
+
+  .modalHeader button {
+    width: 32px;
+    height: 32px;
+  }
+
+  .formGrid {
+    gap: 10px 12px;
+    padding: 14px;
+  }
+
+  .formGrid label {
+    gap: 5px;
+  }
+
+  .formGrid input,
+  .formGrid select {
+    height: 38px;
+  }
+
+  .formGrid textarea {
+    padding: 9px 10px;
+  }
+
+  .modalActions {
+    position: sticky;
+    z-index: 4;
+    bottom: 0;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+  }
+
+  .modalActions .primaryButton,
+  .modalActions .secondaryButton,
+  .modalActions .dangerButton {
+    min-height: 36px;
+  }
+
+  .formSection {
+    padding: 2px 14px 14px;
+  }
+
+  .formSectionHeader {
+    padding: 11px 0 8px;
+  }
+
+  .formSectionHeader h3 {
+    font-size: 13px;
+  }
+
+  .formSectionHeader p {
+    margin-top: 2px;
+  }
+
+  .editorGrid,
+  .editorMain,
+  .editorSide {
+    gap: 10px;
+  }
+
+  .editorHead {
+    gap: 10px;
+    margin-bottom: 12px;
+    padding-block: 10px;
+  }
+
+  .editorTitle .titleIcon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .editorTitle h1 {
+    font-size: 18px;
+  }
+
+  .formGrid .inputLg {
+    height: 42px;
+    font-size: 14px;
+  }
+
+  .panelHeader {
+    min-height: 54px;
+    padding: 11px 14px;
+  }
+
+  .collapseHead {
+    padding: 13px 14px;
+  }
+
+  .collapseBody,
+  .preview {
+    padding: 0 14px 14px;
+  }
+
+  .variantStack {
+    gap: 9px;
+    padding: 0 14px 14px;
+  }
+
+  .variantCardHead {
+    padding: 8px 9px 8px 11px;
+  }
+
+  .variantBody {
+    gap: 9px;
+    padding: 11px 11px 3px;
+  }
+
+  .variantPrices {
+    gap: 9px;
+    padding: 8px 11px 10px;
+  }
+
+  .variantFoot {
+    gap: 8px 12px;
+    padding: 9px 11px 11px;
+  }
+
+  .rteToolbar {
+    gap: 6px;
+    padding: 6px 7px;
+  }
+
+  .rteButtons {
+    gap: 4px;
+  }
+
+  .rteSurface {
+    padding: 15px 16px 18px;
+  }
+
+  .formGrid label.uploaderDrop,
+  .uploaderDrop {
+    min-height: 112px;
+    padding: 12px;
+  }
+}
+
+@media (max-width: 680px) {
+  .trafficSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-inline: 12px;
+  }
+
+  .trafficSummary > div:nth-child(3) {
+    border-left: 0;
+  }
+
+  .trafficSummary > div:nth-child(n + 3) {
+    border-top: 1px solid #222b3b;
+  }
+
+  .trafficBody {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 14px 12px;
+  }
+
+  .trafficChart {
+    gap: 4px;
+    height: 170px;
+    padding-inline: 4px;
+  }
+
+  .trafficChart small {
+    font-size: 6px;
+  }
+
+  .modalActions > .primaryButton,
+  .modalActions > .secondaryButton {
+    flex: 1 1 120px;
+  }
+
+  .editorHeadActions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .editorHeadActions > * {
+    min-width: 0;
+  }
+
+  .segmented {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .segmented > button {
+    justify-content: center;
+    padding-inline: 8px;
+  }
+
+  .twoCols {
+    grid-template-columns: 1fr;
+    gap: 9px;
+  }
+
+  .rteModes {
+    width: 100%;
+  }
+
+  .rteModes > button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .uploaderUrl {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
 }
