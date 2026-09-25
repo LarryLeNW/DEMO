@@ -19,7 +19,6 @@ export default async function SearchPage({
   const results = query
     ? await serverFetch<Paginated<ApiProduct>>(
         `/products${buildQuery({ search: query, limit: 40, sort: "best_selling" })}`,
-        { revalidate: 30 },
       )
     : null;
   const products = (results?.items ?? []).map(apiProductToCommerce);

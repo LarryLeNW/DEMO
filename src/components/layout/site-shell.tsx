@@ -8,11 +8,11 @@ type SiteShellProps = {
   children: ReactNode;
 };
 
-/** Loads navigation data once per request (cached 5 min) and hands plain data to the client shell. */
+/** Loads fresh navigation data and hands plain data to the client shell. */
 export async function SiteShell({ children }: SiteShellProps) {
   const [categories, settings] = await Promise.all([
-    serverFetch<ApiCategory[]>("/categories", { revalidate: 300 }),
-    serverFetch<PublicSettings>("/settings/public", { revalidate: 300 }),
+    serverFetch<ApiCategory[]>("/categories"),
+    serverFetch<PublicSettings>("/settings/public"),
   ]);
 
   return (

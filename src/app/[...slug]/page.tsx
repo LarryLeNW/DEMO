@@ -10,13 +10,8 @@ import { serverFetch } from "@/lib/api/server";
 import { replaceBrandText } from "@/lib/brand";
 import { apiProductToCommerce } from "@/lib/commerce-mapping";
 
-/** Every catalog/content URL is served from the API with 60s ISR; new products/posts need no deploy. */
-export const revalidate = 60;
-export const dynamicParams = true;
-
-export function generateStaticParams() {
-  return [];
-}
+/** Catalog/content URLs always resolve against the latest API data. */
+export const dynamic = "force-dynamic";
 
 type Resolved =
   | { kind: "product"; product: ApiProduct }

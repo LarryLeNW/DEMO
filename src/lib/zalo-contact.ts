@@ -9,9 +9,9 @@ export type ZaloContact = {
   zaloQr: string;
 };
 
-/** Zalo contact info + QR for the "liên hệ Zalo" popup, from public settings (cached 5 min). */
+/** Zalo contact info + QR for the "liên hệ Zalo" popup, from fresh public settings. */
 export async function getZaloContact(): Promise<ZaloContact> {
-  const settings = await serverFetch<PublicSettings>("/settings/public", { revalidate: 300 });
+  const settings = await serverFetch<PublicSettings>("/settings/public");
   const merged = { ...DEFAULT_PUBLIC_SETTINGS, ...settings };
   const zaloLink = zaloLinkFrom(merged);
   const zaloQr = await QRCode.toDataURL(zaloLink, {

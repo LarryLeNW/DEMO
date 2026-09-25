@@ -16,8 +16,6 @@ import { serverFetch } from "@/lib/api/server";
 import type { HomeSection, PublicSettings } from "@/lib/api/settings";
 import { apiProductToCommerce } from "@/lib/commerce-mapping";
 
-export const revalidate = 60;
-
 type Banner = { href: string; src: string; alt: string };
 
 function toBanner(block: ApiContentBlock): Banner | null {
@@ -28,7 +26,7 @@ function toBanner(block: ApiContentBlock): Banner | null {
 export default async function Home() {
   const [blocks, settings] = await Promise.all([
     serverFetch<ApiContentBlock[]>("/content-blocks/home"),
-    serverFetch<PublicSettings>("/settings/public", { revalidate: 300 }),
+    serverFetch<PublicSettings>("/settings/public"),
   ]);
 
   const banners = (blocks ?? []).map(toBanner).filter((banner): banner is Banner => Boolean(banner));

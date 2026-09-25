@@ -113,7 +113,7 @@ export const catalogApi = {
 
 /**
  * Server-side helper: resolves products for a list of slugs (keeps the given order).
- * Cached for 60s and resilient — returns an empty map when the API is down.
+ * Always fresh and resilient — returns an empty map when the API is down.
  */
 export async function fetchProductsBySlugs(slugs: string[]) {
   const map = new Map<string, ApiProduct>();
@@ -123,7 +123,7 @@ export async function fetchProductsBySlugs(slugs: string[]) {
   try {
     const response = await fetch(
       `${API_URL}/products${buildQuery({ slugs: unique, limit: Math.min(100, unique.length) })}`,
-      { next: { revalidate: 60 } },
+      { cache: "no-store" },
     );
     if (!response.ok) return map;
     const data = (await response.json()) as Paginated<ApiProduct>;
