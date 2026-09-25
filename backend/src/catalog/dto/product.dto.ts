@@ -8,7 +8,6 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsUrl,
   Matches,
   MaxLength,
   Min,
@@ -17,9 +16,13 @@ import {
 } from 'class-validator';
 import { DeliveryType, ProductStatus, StockStatus } from '../catalog.enums.js';
 
+const PUBLIC_IMAGE_URL = /^(?:https?:\/\/\S+|\/uploads\/\S+)$/i;
+const PUBLIC_IMAGE_URL_MESSAGE =
+  'image must be an http(s) URL or a site-relative /uploads/ path';
+
 export class ProductImageInputDto {
   @ApiProperty()
-  @IsUrl({ require_tld: false })
+  @Matches(PUBLIC_IMAGE_URL, { message: PUBLIC_IMAGE_URL_MESSAGE })
   @MaxLength(500)
   src: string;
 
@@ -137,7 +140,7 @@ export class CreateProductDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUrl({ require_tld: false })
+  @Matches(PUBLIC_IMAGE_URL, { message: PUBLIC_IMAGE_URL_MESSAGE })
   @MaxLength(500)
   featuredImage?: string;
 

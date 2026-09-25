@@ -4,7 +4,6 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsUrl,
   Matches,
   MaxLength,
   MinLength,
@@ -44,7 +43,9 @@ export class CreateCategoryDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUrl({ require_tld: false })
+  @Matches(/^(?:https?:\/\/\S+|\/uploads\/\S+)$/i, {
+    message: 'imageUrl must be an http(s) URL or a site-relative /uploads/ path',
+  })
   @MaxLength(500)
   imageUrl?: string;
 

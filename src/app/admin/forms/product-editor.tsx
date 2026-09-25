@@ -589,7 +589,10 @@ export function ProductEditor({ productId, notify }: { productId?: number; notif
       }
       return { message: `Đã lưu sản phẩm "${base.name}".`, id: productId };
     });
-    if (!result) return;
+    if (!result) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     // The toast must survive the navigation (the dashboard remounts on the target page).
     queueToast(result.message);
     // New products land on their edit page (stock import needs saved variants); edits go back to the list.
