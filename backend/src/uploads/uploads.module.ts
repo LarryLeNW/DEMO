@@ -6,7 +6,6 @@ import {
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { randomBytes } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
@@ -14,7 +13,6 @@ import { resolve } from 'node:path';
 import { diskStorage } from 'multer';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { Role } from '../common/enums/role.enum.js';
-import type { EnvironmentVariables } from '../config/env.validation.js';
 
 /** Root folder for uploaded media (served by `main.ts` under `/uploads/`). */
 export function uploadRoot() {
@@ -47,9 +45,14 @@ const imageStorage = diskStorage({
 @Controller('admin/uploads')
 @Roles(Role.Admin)
 export class UploadsController {
-  constructor(private readonly config: ConfigService<EnvironmentVariables, true>) {}
-
-  /** Multipart upload (`file` field) → `{ url }` ready to be stored on products, categories or content. */
+  /**
+   * Multipart upload (`file` field) → a same-origin URL.
+   *
+   * Do not bake the API container's hostname into persisted content. In production
+   * that hostname is commonly `localhost:4000` (or a private Docker hostname),
+   * which is not reachable from a visitor's browser. `/uploads/...` is served by
+   * this app and routed by the public reverse proxy alongside `/api`.
+   */
   @Post('images')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -63,13 +66,9 @@ export class UploadsController {
   )
   uploadImage(@UploadedFile() file?: Express.Multer.File) {
     if (!file) throw new BadRequestException('Chưa chọn file ảnh.');
-    const base = (
-      this.config.get('PUBLIC_URL', { infer: true }) ||
-      `http://localhost:${this.config.get('PORT', { infer: true })}`
-    ).replace(/\/+$/, '');
     const path = `/uploads/images/${file.filename}`;
     return {
-      url: `${base}${path}`,
+      url: path,
       path,
       size: file.size,
       mimeType: file.mimetype,

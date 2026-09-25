@@ -6,6 +6,28 @@ export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:400
   "",
 );
 
+/**
+ * Older uploads were persisted with the backend's private localhost URL.
+ * Turn only those upload links back into same-origin public paths; external URLs
+ * and all other API strings are deliberately left untouched.
+ */
+const LOCAL_UPLOAD_URL = /https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?\/uploads\//gi;
+
+export function normalizeUploadedMedia<T>(value: T): T {
+  if (typeof value === "string") {
+    return value.replace(LOCAL_UPLOAD_URL, "/uploads/") as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeUploadedMedia(item)) as T;
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, normalizeUploadedMedia(item)]),
+    ) as T;
+  }
+  return value;
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly details: unknown;
@@ -88,7 +110,7 @@ async function request<T>(
   }
 
   const text = await response.text();
-  return (text ? JSON.parse(text) : undefined) as T;
+  return normalizeUploadedMedia((text ? JSON.parse(text) : undefined) as T);
 }
 
 let refreshInFlight: Promise<boolean> | null = null;
